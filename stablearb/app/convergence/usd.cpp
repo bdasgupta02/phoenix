@@ -32,9 +32,6 @@ void start(Args&&... args)
 {
     Router graph(std::forward<Args&&>(args)...);
 
-    auto& stream = getNode<Stream>(graph);
-    auto& logging = getNode<Logger>(graph);
-
     graph.dispatch(tag::Logger::Info{}, "Starting USDC/USDT Convergence Arbitrage System...", true);
     graph.dispatch(tag::Stream::Login{});
     graph.dispatch(tag::Stream::Start{});
