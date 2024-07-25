@@ -13,6 +13,6 @@
 Deribit with TCP and FIX protocol
 
 ## Tech stack
-Arch Linux x86_64
-GCC 14.1.1
-C++ 23
+- Arch Linux x86_64
+- GCC 14.1.1
+- C++ 23
