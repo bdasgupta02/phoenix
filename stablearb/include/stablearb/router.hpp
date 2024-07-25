@@ -92,7 +92,8 @@ private:
                 node.handle(*this, tag, std::forward<Args>(args)...));
         }
         else
-            return tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...);
+            return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...))>(
+                tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...));
     }
 };
 
