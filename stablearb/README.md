@@ -5,6 +5,14 @@
 - Meant as a fun experiment
 
 ## Strategies
-### Equivalent coin pair arbitrage market-making
-High-frequency arbitrage based spread capture with a bias towards a price of 1
+### Equivalent coin pair convergence arbitrage
+High-frequency arbitrage based market-making with a bias towards a price of 1. Most advantage is lost by running this over the internet, but oh well.
 e.g. USDC/USDT, STETH/ETH
+
+## Exchange
+Deribit with TCP and FIX protocol
+
+## Tech stack
+Arch Linux x86_64
+GCC 14.1.1
+C++ 23

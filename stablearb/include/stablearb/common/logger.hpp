@@ -17,6 +17,8 @@
 #include <string_view>
 #include <thread>
 
+#include <immintrin.h>
+
 namespace stablearb {
 
 namespace detail {
@@ -120,7 +122,7 @@ struct Logger
             .filename = std::string{filename}};
 
         while (!entries.push(entry))
-            ;
+            _mm_pause();
     }
 
     template<typename... Args>
