@@ -30,6 +30,15 @@ struct Router : public Nodes...
     template<typename... Args>
     void dispatch(auto tag, Args&&... args)
     {
+        // clang-format off
+        static_assert(
+            (requires(Nodes node) {
+                node.handle(*this, tag, std::forward<Args&&>(args)...);
+            } || ...),
+            "At least one node should have this handler"
+        );
+        // clang-format on
+
         (tryDispatch<Nodes>(tag, std::forward<Args&&>(args)...), ...);
     }
 
