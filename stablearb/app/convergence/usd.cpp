@@ -1,12 +1,13 @@
+#include "stablearb/convergence/quoter.hpp"
+#include "stablearb/convergence/risk.hpp"
 #include "stablearb/logger.hpp"
+#include "stablearb/price.hpp"
 #include "stablearb/profiler.hpp"
 #include "stablearb/router.hpp"
 #include "stablearb/sender.hpp"
 #include "stablearb/sim.hpp"
 #include "stablearb/stream.hpp"
-#include "stablearb/price.hpp"
-#include "stablearb/convergence/quoter.hpp"
-#include "stablearb/convergence/risk.hpp"
+#include "stablearb/tags.hpp"
 
 #include <boost/program_options/options_description.hpp>
 
@@ -14,7 +15,7 @@ using namespace stablearb;
 using namespace stablearb::convergence;
 namespace po = boost::program_options;
 
-using PriceType = Price<4u>; 
+using PriceType = Price<4u>;
 
 struct ProgramOptions
 {
@@ -23,7 +24,7 @@ struct ProgramOptions
     bool sim = false;
     bool simProfiled = false;
     double txFee = 0.00;
-    int aggressiveTicks = 1; // negative for non-aggressive
+    int exitTicks = 1;
 };
 
 template<typename... Args>
@@ -34,9 +35,9 @@ void start(Args&&... args)
     auto& stream = getNode<Stream>(graph);
     auto& logging = getNode<Logger>(graph);
 
-    logging.info("Starting USDC/USDT Convergence Arbitrage System...", true);
-    stream.login();
-    stream.start(graph);
+    graph.dispatch(tag::Logger::Info{}, "Starting USDC/USDT Convergence Arbitrage System...", true);
+    graph.dispatch(tag::Stream::Login{});
+    graph.dispatch(tag::Stream::Start{});
 }
 
 int main()

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stablearb/tags.hpp"
+
 #include <string>
 
 namespace stablearb {
@@ -17,7 +19,7 @@ struct Logger
         // close file
     }
 
-    void info(std::string msg, bool print = false) {}
+    void handle(auto&, tag::Logger::Info, std::string msg, bool print = false) {}
 };
 
 } // namespace stablearb

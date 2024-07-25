@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stablearb/tags.hpp"
+
 namespace stablearb {
 
 struct Stream
@@ -9,12 +11,12 @@ struct Stream
         // mass exit, mass cancel, logout, disconnect on dtor here
     }
 
-    void login()
+    void handle(auto& graph, tag::Stream::Login)
     {
         // wrap in try catch and log
     }
 
-    void start(auto& graph)
+    void handle(auto& graph, tag::Stream::Start)
     {
         // wrap in try catch and log
     }

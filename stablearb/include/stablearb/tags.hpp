@@ -2,6 +2,15 @@
 
 namespace stablearb::tag {
 
+struct Stream
+{
+    struct Login
+    {};
+
+    struct Start
+    {};
+};
+
 struct Logger
 {
     struct Info
@@ -50,14 +59,14 @@ struct Sender
     {};
 };
 
-struct Risk 
+struct Risk
 {
     struct Fill
     {};
-    
+
     struct BookUpdate
     {};
-    
+
     struct Error
     {};
 };
