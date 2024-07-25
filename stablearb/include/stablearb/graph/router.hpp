@@ -2,7 +2,6 @@
 
 #include "stablearb/data/config.hpp"
 
-#include <concepts>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -84,7 +83,6 @@ private:
     template<typename FirstNode, typename... RestNodes, typename Tag, typename... Args>
     auto tryRetrieve(Tag tag, Args&&... args)
     {
-        static_assert(sizeof...(RestNodes) != 0, "Exactly one node should have this handler");
         if constexpr (concepts::HasReturnHandler<FirstNode, Tag, Router, Args...>)
         {
             auto& node = getNode<FirstNode>(*this);
@@ -92,8 +90,11 @@ private:
                 node.handle(*this, tag, std::forward<Args&&>(args)...));
         }
         else
+        {
+            static_assert(sizeof...(RestNodes) != 0, "Exactly one node should have this handler");
             return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...))>(
                 tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...));
+        }
     }
 };
 
