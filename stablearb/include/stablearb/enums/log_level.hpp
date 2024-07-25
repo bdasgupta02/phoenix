@@ -7,7 +7,8 @@
 
 namespace stablearb {
 BOOST_DEFINE_ENUM_CLASS(LogLevel, DEBUG, INFO, WARN, ERROR, FATAL)
-}
+char const* logLevelString(LogLevel level) { return boost::describe::enum_to_string(level, 0); }
+} // namespace stablearb
 
 namespace std {
 std::istream& operator>>(std::istream& in, stablearb::LogLevel& logLevel)
@@ -23,7 +24,7 @@ std::istream& operator>>(std::istream& in, stablearb::LogLevel& logLevel)
 
 std::ostream& operator<<(std::ostream& os, stablearb::LogLevel level)
 {
-    os << boost::describe::enum_to_string(level, 0);
+    os << stablearb::logLevelString(level);
     return os;
 }
 } // namespace std

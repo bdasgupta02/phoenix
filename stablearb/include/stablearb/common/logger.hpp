@@ -178,26 +178,13 @@ private:
             << ":" 
             << entry.line
             << " [" 
-            << getLevelString(entry.level)
+            << logLevelString(entry.level)
             << "]"
             << entry.message
         ;
         // clang-format on
 
         return loggerCache.str();
-    }
-
-    char const* getLevelString(LogLevel level)
-    {
-        switch (level)
-        {
-        case LogLevel::DEBUG: return "INFO";
-        case LogLevel::INFO: return "INFO";
-        case LogLevel::WARN: return "WARN";
-        case LogLevel::ERROR: return "ERROR";
-        case LogLevel::FATAL: return "FATAL";
-        default: return "UNKNOWN";
-        }
     }
 
     static std::size_t LOGGERS;

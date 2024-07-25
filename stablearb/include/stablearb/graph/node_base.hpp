@@ -2,6 +2,7 @@
 
 namespace stablearb {
 
+// To be optionally inherited by nodes to gain access to configuration
 struct NodeBase
 {
     NodeBase(Config const& config)
