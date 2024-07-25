@@ -93,7 +93,7 @@ struct Logger
             .message = handlerCache.str(),
             .filename = std::string{filename}};
 
-        while (!entries.push(std::move(entry)))
+        while (!entries.push(entry))
             ;
     }
 
