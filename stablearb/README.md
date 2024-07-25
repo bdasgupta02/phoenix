@@ -2,7 +2,7 @@
 - Arbitrage over stable pairs (stablecoins or equivalent crypto coins)
 - Made to be flexible for arbitrage on any delta-1 product
 - These strategies mostly don't rely on quickly fleeting opportunities
-- Mostly as a fun experiment
+- Meant as a fun experiment
 
 ## Strategies
 ### Equivalent coin pair arbitrage market-making
