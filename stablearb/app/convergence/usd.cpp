@@ -28,18 +28,20 @@ int main()
         Stream{
             .config = config
         },
-        Logger{},
-        Quoter{},
-        Profiler{
-            .enabled = config.simProfiled
+        Quoter{
+            .config = config
         },
         Sender{
             .config = config
-        }
+        },
+        Profiler{
+            .enabled = config.simProfiled
+        },
+        Logger{}
     );
     // clang-format on
 
-    graph.dispatch(tag::Logger::Info{}, "Starting USDC/USDT Convergence Arbitrage System...", true);
-    graph.dispatch(tag::Stream::Login{});
-    graph.dispatch(tag::Stream::Start{});
+    graph.invoke(tag::Logger::Info{}, "Starting USDC/USDT Convergence Arbitrage System...", true);
+    graph.invoke(tag::Stream::Login{});
+    graph.invoke(tag::Stream::Start{});
 }
