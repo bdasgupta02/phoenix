@@ -1,5 +1,6 @@
 #pragma once
 
+#include "stablearb/config.hpp"
 #include "stablearb/tags.hpp"
 
 namespace stablearb {
@@ -20,6 +21,8 @@ struct Stream
     {
         // wrap in try catch and log
     }
+
+    Config config;
 };
 
 } // namespace stablearb

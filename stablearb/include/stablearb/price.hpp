@@ -29,6 +29,8 @@ public:
 
     Price operator-(Price const& other) const { return {value - other.value}; }
 
+    void modify(auto&& func) { value = func(value); }
+
 private:
     std::uint64_t value = 0ULL;
     static constexpr std::uint64_t multiplier = std::pow(10, Precision);
