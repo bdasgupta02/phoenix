@@ -1,13 +1,13 @@
-cmake_minimum_required(VERSION 3.15)
-project(usdarb CXX)
+cmake_minimum_required(VERSION 3.20)
+project(stablearb CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread -03")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -pthread -O3")
 
 include(FetchContent)
 
-set(BOOST_INCLUDE_LIBRARIES log asio lockfree unordered)
+set(BOOST_INCLUDE_LIBRARIES log asio lockfree unordered program_options)
 set(BOOST_ENABLE_CMAKE ON)
 
 FetchContent_Declare(
@@ -20,3 +20,4 @@ FetchContent_MakeAvailable(boost)
 include_directories(include)
 
 add_subdirectory(src)
+add_subdirectory(app)
