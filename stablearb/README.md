@@ -6,8 +6,8 @@
 
 ## Strategies
 ### Equivalent coin pair convergence arbitrage
-High-frequency arbitrage based market-making with a bias towards a price of 1. Most advantage is lost by running this over the internet, but oh well.
-e.g. USDC/USDT, STETH/ETH
+- High-frequency arbitrage based market-making with a bias towards a price of 1 - but most advantage is lost by running over the internet.
+- e.g. USDC/USDT, STETH/ETH
 
 ## Exchange
 Deribit with TCP and FIX protocol

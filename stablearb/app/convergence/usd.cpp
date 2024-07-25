@@ -17,11 +17,20 @@ struct Traits
     using PriceType = Price<4u>;
 };
 
-using Graph = Router<Risk, Stream, Quoter, Sender, Profiler, Logger>;
+// clang-format off
+using Graph = Router<
+    Risk<Traits>,
+    Stream<Traits>,
+    Quoter<Traits>,
+    Sender,
+    Profiler,
+    Logger
+>;
+// clang-format on
 
 int main(int argc, char* argv[])
 {
-    Config config{.appName = "USDC-USDT"};
+    Config config;
     if (!config.apply(argc, argv))
         return 1;
 

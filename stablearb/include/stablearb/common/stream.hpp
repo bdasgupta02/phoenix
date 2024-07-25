@@ -11,8 +11,11 @@
 
 namespace stablearb {
 
+template<typename Traits>
 struct Stream : NodeBase
 {
+    using PriceType = Traits::PriceType;
+
     Stream(Config const& config)
         : NodeBase{config}
         , recvBuffer(4096u)
