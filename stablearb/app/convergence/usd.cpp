@@ -20,7 +20,7 @@ struct Traits
 
 int main()
 {
-    Config config;
+    Config config{.appName = "USDC-USDT-Arb"};
 
     // clang-format off
     Router graph(
@@ -41,6 +41,7 @@ int main()
     );
     // clang-format on
 
+    graph.invoke(tag::Logger::Start{}, config.appName);
     STABLEARB_LOG_INFO_PRINT(graph, "Starting USDC/USDT Convergence Arbitrage System");
 
     graph.invoke(tag::Stream::Login{});

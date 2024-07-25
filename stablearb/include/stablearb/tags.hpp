@@ -13,6 +13,9 @@ struct Stream
 
 struct Logger
 {
+    struct Start
+    {};
+
     struct Info
     {};
 
