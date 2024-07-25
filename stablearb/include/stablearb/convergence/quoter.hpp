@@ -1,12 +1,12 @@
 #pragma once
 
-#include "stablearb/config.hpp"
+#include "stablearb/graph/node_base.hpp"
 
-namespace stablearb::convergence {
+namespace stablearb {
 
-struct Quoter
+struct Quoter : NodeBase
 {
-    Config* config;
+    using NodeBase::NodeBase;
 };
 
-} // namespace stablearb::usd
+} // namespace stablearb

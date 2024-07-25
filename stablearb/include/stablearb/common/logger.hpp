@@ -1,7 +1,11 @@
 #pragma once
 
+#include "stablearb/data/config.hpp"
+#include "stablearb/enums/log_level.hpp"
+#include "stablearb/graph/node_base.hpp"
 #include "stablearb/tags.hpp"
 
+#include <boost/describe.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
 #include <atomic>
@@ -10,12 +14,10 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <thread>
 
 namespace stablearb {
-
 namespace detail {
 consteval std::string_view getFilename(std::string_view path)
 {
@@ -30,20 +32,11 @@ consteval std::string_view getFilename(std::string_view path)
 #define STABLEARB_LOG_DETAIL_CURRENT_FILE ::stablearb::detail::getFilename(__FILE__)
 } // namespace detail
 
-enum class LogLevel
-{
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
-    FATAL
-};
-
 struct Logger
 {
-    Logger(std::string_view appName, LogLevel logLevel)
-        : appName{appName}
-        , logLevel{logLevel}
+    Logger(Config const& config)
+        : logLevel{config.logLevel}
+        , appName{config.appName}
     {}
 
     Logger(Logger&& other) { assert(!other.running.test() && "Cannot move running logger"); }

@@ -4,7 +4,7 @@
 
 namespace stablearb {
 
-struct Risk : NodeBase
+struct Sender : NodeBase
 {
     using NodeBase::NodeBase;
 };

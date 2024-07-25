@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stablearb/data/config.hpp"
+
 #include <concepts>
 #include <memory>
 #include <type_traits>
@@ -40,8 +42,8 @@ Node& getNode(Router<Nodes...>& graph)
 template<typename... Nodes>
 struct Router : public Nodes...
 {
-    Router(Nodes&&... nodes)
-        : Nodes(std::move(nodes))...
+    Router(Config const& config)
+        : Nodes(config)...
     {}
 
     // Use invoke() to dispatch a void call, and retrieve() to dispatch a non-void call
