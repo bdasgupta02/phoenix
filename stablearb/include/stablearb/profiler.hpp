@@ -1,8 +1,10 @@
 #pragma once
 
+#include "stablearb/logger.hpp"
 #include "stablearb/tags.hpp"
 
 #include <chrono>
+#include <string_view>
 
 namespace stablearb {
 
@@ -11,27 +13,27 @@ struct Profiler
     template<typename Router>
     struct Timer
     {
-        Timer(Router& router, bool enabled, std::string name)
-            : enabled(enabled)
-            , router(router)
-            , name(name)
-            , start(std::chrono::high_resolution_clock::now())
+        Timer(Router& graph, bool enabled, std::string_view name)
+            : enabled{enabled}
+            , graph{&graph}
+            , name{name}
+            , start{std::chrono::high_resolution_clock::now()}
         {}
 
         ~Timer()
         {
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            router.invoke(tag::Logger::Info{}, name + " took " + std::string{duration.count()} + "µs");
+            /*STABLEARB_LOG_INFO(*graph, name, "took", duration.count(), "µs");*/
         }
 
         bool enabled = false;
-        Router& router;
+        Router* graph;
         std::string name;
         std::chrono::high_resolution_clock::time_point start;
     };
 
-    auto handle(auto& router, tag::Profiler::Guard, std::string name) { return Timer(router, enabled, name); }
+    auto handle(auto& graph, tag::Profiler::Guard, std::string_view name) { return Timer(graph, enabled, name); }
 
     bool enabled = false;
 };

@@ -37,11 +37,11 @@ int main()
         Profiler{
             .enabled = config.simProfiled
         },
-        Logger{}
+        Logger{config.appName, config.logLevel}
     );
     // clang-format on
 
-    graph.invoke(tag::Logger::Start{}, config.appName);
+    graph.invoke(tag::Logger::Start{});
     STABLEARB_LOG_INFO_PRINT(graph, "Starting USDC/USDT Convergence Arbitrage System");
 
     graph.invoke(tag::Stream::Login{});

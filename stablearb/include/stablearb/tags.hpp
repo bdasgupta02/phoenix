@@ -16,13 +16,7 @@ struct Logger
     struct Start
     {};
 
-    struct Info
-    {};
-
-    struct Warn
-    {};
-
-    struct Error
+    struct Log
     {};
 
     struct Verify

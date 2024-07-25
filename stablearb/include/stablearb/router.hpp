@@ -51,7 +51,7 @@ struct Router : public Nodes...
     void invoke(Tag tag, Args&&... args)
     {
         static_assert(
-            (concepts::HasVoidHandler<Nodes, Tag, Router&, Args...> || ...),
+            (concepts::HasVoidHandler<Nodes, Tag, Router, Args...> || ...),
             "At least one node should have this handler");
 
         (tryInvoke<Nodes>(tag, std::forward<Args&&>(args)...), ...);
@@ -61,7 +61,7 @@ struct Router : public Nodes...
     auto retrieve(Tag tag, Args&&... args)
     {
         static_assert(
-            (concepts::HasReturnHandler<Nodes, Tag, Router&, Args...> ^ ...) == 1,
+            (concepts::HasReturnHandler<Nodes, Tag, Router, Args...> ^ ...) == 1,
             "Exactly one node should have this handler");
 
         return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...))>(
@@ -72,7 +72,7 @@ private:
     template<typename Node, typename Tag, typename... Args>
     void tryInvoke(Tag tag, Args&&... args)
     {
-        if constexpr (concepts::HasVoidHandler<Node, Tag, Router&, Args...>)
+        if constexpr (concepts::HasVoidHandler<Node, Tag, Router, Args...>)
         {
             auto& node = getNode<Node>(*this);
             node.handle(*this, tag, std::forward<Args&&>(args)...);
@@ -83,7 +83,7 @@ private:
     auto tryRetrieve(Tag tag, Args&&... args)
     {
         static_assert(sizeof...(RestNodes) != 0, "Exactly one node should have this handler");
-        if constexpr (concepts::HasReturnHandler<FirstNode, Tag, Router&, Args...>)
+        if constexpr (concepts::HasReturnHandler<FirstNode, Tag, Router, Args...>)
         {
             auto& node = getNode<FirstNode>(*this);
             return std::forward<decltype(node.handle(*this, tag, std::forward<Args&&>(args)...))>(

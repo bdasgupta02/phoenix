@@ -30,13 +30,27 @@ consteval std::string_view getFilename(std::string_view path)
 #define STABLEARB_LOG_DETAIL_CURRENT_FILE ::stablearb::detail::getFilename(__FILE__)
 } // namespace detail
 
+enum class LogLevel
+{
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR,
+    FATAL
+};
+
 struct Logger
 {
-    Logger() = default;
+    Logger(std::string_view appName, LogLevel logLevel)
+        : appName{appName}
+        , logLevel{logLevel}
+    {}
+
     Logger(Logger&& other) { assert(!other.running.test() && "Cannot move running logger"); }
+
     ~Logger() { shutdown(); }
 
-    void handle(auto&, tag::Logger::Start, std::string_view appName)
+    void handle(auto&, tag::Logger::Start)
     {
         ++LOGGERS;
         assert(LOGGERS == 1 && "Only one logger is allowed to run at a time at one time");
@@ -55,25 +69,29 @@ struct Logger
         logger.emplace(&Logger::loggerThread, this);
     }
 
-    template<typename Tag, typename... Args>
-    void handle(auto&, Tag, std::string_view filename, int line, bool print = false, Args&&... args)
+    template<typename... Args>
+    void handle(
+        auto&,
+        tag::Logger::Log,
+        LogLevel level,
+        std::string_view filename,
+        int line,
+        bool print = false,
+        Args&&... args)
     {
+        if (level < logLevel)
+            return;
+
         handlerCache.str("");
         handlerCache.clear();
         ((handlerCache << " " << args), ...);
 
-        Entry entry{.line = line, .print = print, .message = handlerCache.str(), .filename = std::string{filename}};
-
-        if constexpr (std::is_same_v<Tag, tag::Logger::Info>)
-            entry.level = Entry::Level::Info;
-        else if constexpr (std::is_same_v<Tag, tag::Logger::Warn>)
-            entry.level = Entry::Level::Warn;
-        else if constexpr (std::is_same_v<Tag, tag::Logger::Error>)
-            entry.level = Entry::Level::Error;
-        else if constexpr (std::is_same_v<Tag, tag::Logger::Verify>)
-            entry.level = Entry::Level::Verify;
-        else
-            static_assert(false, "Invalid tag passed to logger handler");
+        Entry entry{
+            .line = line,
+            .print = print,
+            .level = level,
+            .message = handlerCache.str(),
+            .filename = std::string{filename}};
 
         while (!entries.push(std::move(entry)))
             ;
@@ -82,7 +100,7 @@ struct Logger
     template<typename... Args>
     void handle(
         auto& graph,
-        tag::Logger::Verify tag,
+        tag::Logger::Verify,
         bool condition,
         std::string_view filename,
         int line,
@@ -90,23 +108,15 @@ struct Logger
         Args&&... args)
     {
         if (!condition)
-            handle(graph, tag, filename, line, print, std::forward<Args&&>(args)...);
+            handle(graph, LogLevel::FATAL, filename, line, print, std::forward<Args&&>(args)...);
     }
 
 private:
     struct Entry
     {
-        enum class Level
-        {
-            Info,
-            Warn,
-            Error,
-            Verify
-        };
-
         int line;
         bool print;
-        Level level;
+        LogLevel level;
         std::string message;
         std::string filename;
     };
@@ -117,6 +127,7 @@ private:
         {
             running.clear();
             logger->join();
+            --LOGGERS;
         }
     }
 
@@ -175,7 +186,7 @@ private:
             << entry.line
             << " [" 
             << getLevelString(entry.level)
-            << "] "
+            << "]"
             << entry.message
         ;
         // clang-format on
@@ -183,14 +194,15 @@ private:
         return loggerCache.str();
     }
 
-    char const* getLevelString(Entry::Level level)
+    char const* getLevelString(LogLevel level)
     {
         switch (level)
         {
-        case Entry::Level::Info: return "INFO";
-        case Entry::Level::Warn: return "WARN";
-        case Entry::Level::Error: return "ERROR";
-        case Entry::Level::Verify: return "VERIFY";
+        case LogLevel::DEBUG: return "INFO";
+        case LogLevel::INFO: return "INFO";
+        case LogLevel::WARN: return "WARN";
+        case LogLevel::ERROR: return "ERROR";
+        case LogLevel::FATAL: return "FATAL";
         default: return "UNKNOWN";
         }
     }
@@ -198,6 +210,8 @@ private:
     static std::size_t LOGGERS;
     static constexpr std::size_t QUEUE_SIZE = 8192u;
 
+    LogLevel logLevel;
+    std::string appName;
     std::string logPath;
     std::optional<std::thread> logger;
     std::optional<std::ofstream> logFile;
@@ -212,20 +226,30 @@ private:
 std::size_t Logger::LOGGERS = 0u;
 
 // clang-format off
+#define STABLEARB_LOG_DEBUG(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_DEBUG_PRINT(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
 #define STABLEARB_LOG_INFO(graph, ...) \
-    graph.invoke(tag::Logger::Info{}, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+    graph.invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
 #define STABLEARB_LOG_INFO_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Info{}, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+    graph.invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
 #define STABLEARB_LOG_WARN(graph, ...) \
-    graph.invoke(tag::Logger::Warn{}, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+    graph.invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
 #define STABLEARB_LOG_WARN_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Warn{}, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+    graph.invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
 #define STABLEARB_LOG_ERROR(graph, ...) \
-    graph.invoke(tag::Logger::Error{}, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+    graph.invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
 #define STABLEARB_LOG_ERROR_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Error{}, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+    graph.invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
+#define STABLEARB_LOG_FATAL(graph, condition, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_FATAL_PRINT(graph, condition, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
 #define STABLEARB_LOG_VERIFY(graph, condition, ...) \
     graph.invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
