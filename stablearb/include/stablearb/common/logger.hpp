@@ -18,6 +18,7 @@
 #include <thread>
 
 namespace stablearb {
+
 namespace detail {
 consteval std::string_view getFilename(std::string_view path)
 {
@@ -31,6 +32,38 @@ consteval std::string_view getFilename(std::string_view path)
 
 #define STABLEARB_LOG_DETAIL_CURRENT_FILE ::stablearb::detail::getFilename(__FILE__)
 } // namespace detail
+
+// clang-format off
+#define STABLEARB_LOG_DEBUG(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_DEBUG_PRINT(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
+#define STABLEARB_LOG_INFO(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_INFO_PRINT(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
+#define STABLEARB_LOG_WARN(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_WARN_PRINT(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
+#define STABLEARB_LOG_ERROR(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_ERROR_PRINT(graph, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
+#define STABLEARB_LOG_FATAL(graph, condition, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_FATAL_PRINT(graph, condition, ...) \
+    graph.invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+
+#define STABLEARB_LOG_VERIFY(graph, condition, ...) \
+    graph.invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_VERIFY_PRINT(graph, condition, ...) \
+    graph.invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+// clang-format on
 
 struct Logger
 {
@@ -63,7 +96,7 @@ struct Logger
     }
 
     template<typename... Args>
-    void handle(
+    inline void handle(
         auto&,
         tag::Logger::Log,
         LogLevel level,
@@ -91,7 +124,7 @@ struct Logger
     }
 
     template<typename... Args>
-    void handle(
+    inline void handle(
         auto& graph,
         tag::Logger::Verify,
         bool condition,
@@ -204,37 +237,5 @@ private:
 };
 
 std::size_t Logger::LOGGERS = 0u;
-
-// clang-format off
-#define STABLEARB_LOG_DEBUG(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_DEBUG_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
-#define STABLEARB_LOG_INFO(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_INFO_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
-#define STABLEARB_LOG_WARN(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_WARN_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
-#define STABLEARB_LOG_ERROR(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_ERROR_PRINT(graph, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
-#define STABLEARB_LOG_FATAL(graph, condition, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_FATAL_PRINT(graph, condition, ...) \
-    graph.invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
-#define STABLEARB_LOG_VERIFY(graph, condition, ...) \
-    graph.invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_VERIFY_PRINT(graph, condition, ...) \
-    graph.invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-// clang-format on
 
 } // namespace stablearb
