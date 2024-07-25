@@ -10,7 +10,6 @@
 #include "stablearb/tags.hpp"
 
 using namespace stablearb;
-namespace po = boost::program_options;
 
 struct Traits
 {
