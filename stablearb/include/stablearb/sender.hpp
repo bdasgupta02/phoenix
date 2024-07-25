@@ -6,7 +6,7 @@ namespace stablearb {
 
 struct Sender
 {
-    Config config;
+    Config* config;
 };
 
 } // namespace stablearb

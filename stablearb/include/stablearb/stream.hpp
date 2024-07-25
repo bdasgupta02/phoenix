@@ -22,7 +22,7 @@ struct Stream
         // wrap in try catch and log
     }
 
-    Config config;
+    Config* config;
 };
 
 } // namespace stablearb

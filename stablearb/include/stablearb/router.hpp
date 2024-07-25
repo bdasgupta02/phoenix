@@ -40,10 +40,8 @@ Node& getNode(Router<Nodes...>& graph)
 template<typename... Nodes>
 struct Router : public Nodes...
 {
-    using Nodes::Nodes...;
-
     Router(Nodes&&... nodes)
-        : Nodes(std::forward<Nodes>(nodes))...
+        : Nodes(std::move(nodes))...
     {}
 
     // Use invoke() to dispatch a void call, and retrieve() to dispatch a non-void call
@@ -56,7 +54,7 @@ struct Router : public Nodes...
             (concepts::HasVoidHandler<Nodes, Tag, Router&, Args...> || ...),
             "At least one node should have this handler");
 
-        (tryInvoke<Nodes>(tag, std::forward<Args>(args)...), ...);
+        (tryInvoke<Nodes>(tag, std::forward<Args&&>(args)...), ...);
     }
 
     template<typename Tag, typename... Args>
@@ -66,8 +64,8 @@ struct Router : public Nodes...
             (concepts::HasReturnHandler<Nodes, Tag, Router&, Args...> ^ ...) == 1,
             "Exactly one node should have this handler");
 
-        return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...))>(
-            tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...));
+        return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...))>(
+            tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...));
     }
 
 private:
@@ -77,7 +75,7 @@ private:
         if constexpr (concepts::HasVoidHandler<Node, Tag, Router&, Args...>)
         {
             auto& node = getNode<Node>(*this);
-            node.handle(*this, tag, std::forward<Args>(args)...);
+            node.handle(*this, tag, std::forward<Args&&>(args)...);
         }
     }
 
@@ -88,12 +86,12 @@ private:
         if constexpr (concepts::HasReturnHandler<FirstNode, Tag, Router&, Args...>)
         {
             auto& node = getNode<FirstNode>(*this);
-            return std::forward<decltype(node.handle(*this, tag, std::forward<Args>(args)...))>(
-                node.handle(*this, tag, std::forward<Args>(args)...));
+            return std::forward<decltype(node.handle(*this, tag, std::forward<Args&&>(args)...))>(
+                node.handle(*this, tag, std::forward<Args&&>(args)...));
         }
         else
             return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...))>(
-                tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...));
+                tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...));
     }
 };
 

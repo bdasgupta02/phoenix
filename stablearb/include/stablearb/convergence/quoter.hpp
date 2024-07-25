@@ -6,7 +6,7 @@ namespace stablearb::convergence {
 
 struct Quoter
 {
-    Config config;
+    Config* config;
 };
 
 } // namespace stablearb::usd

@@ -26,13 +26,13 @@ int main()
     Router graph(
         Risk{},
         Stream{
-            .config = config
+            .config = &config
         },
         Quoter{
-            .config = config
+            .config = &config
         },
         Sender{
-            .config = config
+            .config = &config
         },
         Profiler{
             .enabled = config.simProfiled
@@ -41,7 +41,8 @@ int main()
     );
     // clang-format on
 
-    graph.invoke(tag::Logger::Info{}, "Starting USDC/USDT Convergence Arbitrage System...", true);
+    STABLEARB_LOG_INFO_PRINT(graph, "Starting USDC/USDT Convergence Arbitrage System");
+
     graph.invoke(tag::Stream::Login{});
     graph.invoke(tag::Stream::Start{});
 }
