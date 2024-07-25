@@ -66,7 +66,8 @@ struct Router : public Nodes...
             (concepts::HasReturnHandler<Nodes, Tag, Router&, Args...> ^ ...) == 1,
             "Exactly one node should have this handler");
 
-        return tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...);
+        return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...))>(
+            tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...));
     }
 
 private:
@@ -87,7 +88,8 @@ private:
         if constexpr (concepts::HasReturnHandler<FirstNode, Tag, Router&, Args...>)
         {
             auto& node = getNode<FirstNode>(*this);
-            return node.handle(*this, tag, std::forward<Args>(args)...);
+            return std::forward<decltype(node.handle(*this, tag, std::forward<Args>(args)...))>(
+                node.handle(*this, tag, std::forward<Args>(args)...));
         }
         else
             return tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...);
