@@ -19,7 +19,7 @@ struct Logger
         // close file
     }
 
-    void handle(auto&, tag::Logger::Info, std::string msg, bool print = false) {}
+    void handle(auto&, tag::Logger::Info, std::string msg, bool print = false, std::string file = __FILE__) {}
 };
 
 } // namespace stablearb
