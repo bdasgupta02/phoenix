@@ -9,10 +9,15 @@ namespace stablearb {
 template<typename... Nodes>
 struct Router;
 
+template<typename Node, typename Tag, typename _Router, typename... Args>
+concept HasHandler = requires(Node node, Tag tag, _Router& router, Args&&... args) {
+    node.handle(router, tag, std::forward<Args&&>(args)...);
+};
+
 template<typename Node, typename... Nodes>
 Node& getNode(Router<Nodes...>& graph)
 {
-    static_assert((std::is_same_v<Node, Nodes> || ...));
+    static_assert((std::is_same_v<Node, Nodes> || ...), "Invalid node type");
     return static_cast<Node&>(graph);
 }
 
@@ -27,27 +32,19 @@ struct Router : public Nodes...
         : Nodes(std::forward<Nodes&&>(nodes))...
     {}
 
-    template<typename... Args>
-    void dispatch(auto tag, Args&&... args)
+    template<typename Tag, typename... Args>
+    void dispatch(Tag tag, Args&&... args)
     {
-        // clang-format off
-        static_assert(
-            (requires(Nodes node) {
-                node.handle(*this, tag, std::forward<Args&&>(args)...);
-            } || ...),
-            "At least one node should have this handler"
-        );
-        // clang-format on
-
+        static_assert((HasHandler<Nodes, Tag, Router&, Args...> || ...), "At least one node should have this handler");
         (tryDispatch<Nodes>(tag, std::forward<Args&&>(args)...), ...);
     }
 
 private:
     // Handlers should start with (graph&, tag, ...)
-    template<typename Node, typename... Args>
-    void tryDispatch(auto tag, Args&&... args)
+    template<typename Node, typename Tag, typename... Args>
+    void tryDispatch(Tag tag, Args&&... args)
     {
-        if constexpr (requires { std::declval<Node>().handle(this, tag, std::forward<Args&&>(args)...); })
+        if constexpr (HasHandler<Node, Tag, Router&, Args...>)
         {
             auto& node = getNode<Node>(*this);
             node.handle(*this, tag, std::forward<Args&&>(args)...);
