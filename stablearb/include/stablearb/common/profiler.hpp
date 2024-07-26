@@ -9,19 +9,19 @@
 
 namespace stablearb {
 
-template<typename Traits>
-struct Profiler : NodeBase<Traits>
+template<typename Traits, typename Router>
+struct Profiler : NodeBase<Traits, Router>
 {
-    using NodeBase<Traits>::NodeBase;
+    using NodeBase<Traits, Router>::NodeBase;
 
     struct Dummy
     {};
 
-    template<typename Router>
+    template<typename Handle>
     struct Timer
     {
-        Timer(Router& graph, std::string_view name)
-            : graph{&graph}
+        Timer(Handle* handle, std::string_view name)
+            : handle{handle}
             , name{name}
             , start{std::chrono::high_resolution_clock::now()}
         {}
@@ -30,17 +30,17 @@ struct Profiler : NodeBase<Traits>
         {
             auto end = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            STABLEARB_LOG_INFO(*graph, name, "took", duration.count(), "µs");
+            STABLEARB_LOG_INFO(handle, name, "took", duration.count(), "µs");
         }
 
-        Router* graph = nullptr;
+        Handle* handle = nullptr;
         std::string_view name;
         std::chrono::high_resolution_clock::time_point start;
     };
 
-    auto handle(auto& graph, tag::Profiler::Guard, std::string_view name)
+    auto handle(tag::Profiler::Guard, std::string_view name)
     {
-        return this->config->profiled ? Timer{graph, name} : Dummy{};
+        return this->config->profiled ? Timer{*(this->handler), name} : Dummy{};
     }
 };
 

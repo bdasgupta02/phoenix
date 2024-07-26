@@ -5,12 +5,12 @@
 
 namespace stablearb {
 
-template<typename Traits>
-struct Sender : NodeBase<Traits>
+template<typename Traits, typename Router>
+struct Sender : NodeBase<Traits, Router>
 {
-    using NodeBase<Traits>::NodeBase;
+    using NodeBase<Traits, Router>::NodeBase;
 
-    void handle(auto& graph, tag::Sender::MassCancel) {}
+    void handle(tag::Sender::MassCancel) {}
 };
 
 } // namespace stablearb

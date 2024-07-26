@@ -11,13 +11,13 @@
 
 namespace stablearb {
 
-template<typename Traits>
-struct Stream : NodeBase<Traits>
+template<typename Traits, typename Router>
+struct Stream : NodeBase<Traits, Router>
 {
     using PriceType = Traits::PriceType;
 
-    Stream(Config<Traits> const& config)
-        : NodeBase<Traits>{config}
+    Stream(Config<Traits> const& config, RouterHandler<Router>& handler)
+        : NodeBase<Traits, Router>{config, handler}
         , recvBuffer(4096u)
         , sendBuffer(4096u)
     {}
@@ -27,12 +27,12 @@ struct Stream : NodeBase<Traits>
         // mass exit, mass cancel, logout, disconnect on dtor here
     }
 
-    void handle(auto& graph, tag::Stream::Start)
+    void handle(tag::Stream::Start)
     {
         // wrap in try catch and log
     }
 
-    void handle(auto& graph, tag::Stream::Stop)
+    void handle(tag::Stream::Stop)
     {
         // same thing as dtor
     }

@@ -6,22 +6,25 @@
 
 namespace stablearb {
 
-template<typename Traits>
-struct Risk : NodeBase<Traits>
+template<typename Traits, typename Router>
+struct Risk : NodeBase<Traits, Router>
 {
-    using NodeBase<Traits>::NodeBase;
+    using NodeBase<Traits, Router>::NodeBase;
 
     using PriceType = Traits::PriceType;
 
-    void handle(auto&, tag::Risk::Abort) { aborted.test_and_set(); }
+    void handle(tag::Risk::Abort) { aborted.test_and_set(); }
 
 private:
-    void abort(auto& graph)
+    inline void checkAbort()
     {
-        graph.invoke(tag::Sender::MassCancel{});
-        graph.invoke(tag::Stream::Stop{});
-        graph.invoke(tag::Logger::Stop{});
-        std::abort();
+        if (aborted.test())
+        {
+            this->getHandler()->invoke(tag::Sender::MassCancel{});
+            this->getHandler()->invoke(tag::Stream::Stop{});
+            this->getHandler()->invoke(tag::Logger::Stop{});
+            std::abort();
+        }
     }
 
     // To be checked everytime a handler except Abort is called

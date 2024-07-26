@@ -4,10 +4,10 @@
 
 namespace stablearb {
 
-template<typename Traits>
-struct Quoter : NodeBase<Traits>
+template<typename Traits, typename Router>
+struct Quoter : NodeBase<Traits, Router>
 {
-    using NodeBase<Traits>::NodeBase;
+    using NodeBase<Traits, Router>::NodeBase;
 
     using PriceType = Traits::PriceType;
 };
