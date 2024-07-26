@@ -9,14 +9,6 @@
 - High-frequency arbitrage based market-making with a bias towards a price of 1 - but most advantage is lost by running over the internet.
 - e.g. USDC/USDT, STETH/ETH
 
-## Exchange
-Deribit with TCP and FIX protocol
-
-## Tech stack
-- Arch Linux x86_64
-- GCC 14.1.1
-- C++ 23
-
 ## Static dependency injection
 This project also includes a very overkill but small implementation for an automatic wiring system for static dependency injection. My design tries to simplify the end-user interface at the expense of some compile time. Just Make a graph like below, and construct/run it like magic:
 
@@ -76,3 +68,11 @@ Graph graph{config};
 auto* handler = graph.getHandler();
 handler->invoke(tag::Stream::Start{});
 ```
+
+## Exchange
+Deribit with TCP and FIX protocol
+
+## Tech stack
+- Arch Linux x86_64
+- GCC 14.1.1
+- C++ 23
