@@ -32,6 +32,7 @@ struct Stream : NodeBase
     using NodeBase::NodeBase;
 
     // To receive function calls, just use handle(tag) functions 
+    // These handlers support any number of universal ref arguments
     void handle(tag::Stream::Start)
     {
         ...
@@ -44,7 +45,7 @@ struct Stream : NodeBase
     }
 
     // Handlers can also return anything if needed 
-    Status& handle(tag::Stream::Status) 
+    Status& handle(tag::Stream::Status, ...) 
     {
         return status;
     }
