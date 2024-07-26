@@ -16,6 +16,7 @@ struct NodeBase
     {}
 
     RouterHandler<Router>* getHandler() { return handler; }
+    Config<Traits> const* getConfig() { return config; }
 
     Config<Traits> const* config{nullptr};
     RouterHandler<Router>* handler{nullptr};

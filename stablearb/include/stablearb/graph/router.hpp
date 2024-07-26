@@ -72,7 +72,7 @@ struct Router<Traits, NodeList<Nodes...>>
 
 private:
     template<typename Tag, typename... Args>
-    void invokeImpl(Tag tag, Args&&... args)
+    inline void invokeImpl(Tag tag, Args&&... args)
     {
         static_assert(
             (concepts::HasVoidHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> || ...),
@@ -82,7 +82,7 @@ private:
     }
 
     template<typename Tag, typename... Args>
-    auto retrieveImpl(Tag tag, Args&&... args)
+    [[nodiscard]] inline auto retrieveImpl(Tag tag, Args&&... args)
     {
         static_assert(
             (concepts::HasReturnHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> ^ ...) == 1,
@@ -93,7 +93,7 @@ private:
     }
 
     template<template<typename> class Node, typename Tag, typename... Args>
-    void tryInvoke(Tag tag, Args&&... args)
+    inline void tryInvoke(Tag tag, Args&&... args)
     {
         if constexpr (concepts::HasVoidHandler<Node<NodeBase<Traits, Router>>, Tag, Router, Args...>)
         {
@@ -103,7 +103,7 @@ private:
     }
 
     template<template<typename> class FirstNode, template<typename> class... RestNodes, typename Tag, typename... Args>
-    auto tryRetrieve(Tag tag, Args&&... args)
+    [[nodiscard]] inline auto tryRetrieve(Tag tag, Args&&... args)
     {
         if constexpr (concepts::HasReturnHandler<FirstNode<NodeBase<Traits, Router>>, Tag, Router, Args...>)
         {

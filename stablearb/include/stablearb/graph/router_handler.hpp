@@ -13,16 +13,16 @@ struct RouterHandler
     // All handle() functions in the receiver nodes should begin with (graph&, tag, ...<args>)
 
     template<typename Tag, typename... Args>
-    void invoke(Tag tag, Args&&... args)
+    inline void invoke(Tag tag, Args&&... args)
     {
         static_cast<Router&>(*this).invokeImpl(tag, std::forward<Args&&>(args)...);
     }
 
     template<typename Tag, typename... Args>
-    auto retrieve(Tag tag, Args&&... args)
+    [[nodiscard]] inline auto retrieve(Tag tag, Args&&... args)
     {
-        return std::forward<decltype(static_cast<Router&>(*this).retrieve(tag, std::forward<Args&&>(args)...))>(
-            static_cast<Router&>(*this).retrieve(tag, std::forward<Args&&>(args)...));
+        return std::forward<decltype(static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args&&>(args)...))>(
+            static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args&&>(args)...));
     }
 };
 
