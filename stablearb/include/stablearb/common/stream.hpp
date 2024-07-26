@@ -1,7 +1,6 @@
 #pragma once
 
 #include "stablearb/data/config.hpp"
-#include "stablearb/graph/node_base.hpp"
 #include "stablearb/tags.hpp"
 
 #include <boost/asio.hpp>
@@ -11,13 +10,14 @@
 
 namespace stablearb {
 
-template<typename Traits, typename Router>
-struct Stream : NodeBase<Traits, Router>
+template<typename NodeBase>
+struct Stream : NodeBase
 {
-    using PriceType = Traits::PriceType;
+    using PriceType = NodeBase::Traits::PriceType;
 
+    template<typename Traits, typename Router>
     Stream(Config<Traits> const& config, RouterHandler<Router>& handler)
-        : NodeBase<Traits, Router>{config, handler}
+        : NodeBase{config, handler}
         , recvBuffer(4096u)
         , sendBuffer(4096u)
     {}

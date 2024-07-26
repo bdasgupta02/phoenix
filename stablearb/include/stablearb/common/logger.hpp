@@ -38,42 +38,43 @@ consteval std::string_view getFilename(std::string_view path)
 } // namespace detail
 
 // clang-format off
-#define STABLEARB_LOG_DEBUG(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_DEBUG_PRINT(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+#define STABLEARB_LOG_DEBUG(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_DEBUG_PRINT(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
-#define STABLEARB_LOG_INFO(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_INFO_PRINT(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+#define STABLEARB_LOG_INFO(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_INFO_PRINT(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
-#define STABLEARB_LOG_WARN(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_WARN_PRINT(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+#define STABLEARB_LOG_WARN(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_WARN_PRINT(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
-#define STABLEARB_LOG_ERROR(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_ERROR_PRINT(handle, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+#define STABLEARB_LOG_ERROR(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_ERROR_PRINT(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
-#define STABLEARB_LOG_FATAL(handle, condition, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_FATAL_PRINT(handle, condition, ...) \
-    handle->invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+#define STABLEARB_LOG_FATAL(handler, condition, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_FATAL_PRINT(handler, condition, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
-#define STABLEARB_LOG_VERIFY(handle, condition, ...) \
-    handle->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_VERIFY_PRINT(handle, condition, ...) \
-    handle->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+#define STABLEARB_LOG_VERIFY(handler, condition, ...) \
+    handler->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+#define STABLEARB_LOG_VERIFY_PRINT(handler, condition, ...) \
+    handler->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 // clang-format on
 
-template<typename Traits, typename Router>
-struct Logger : NodeBase<Traits, Router>
+template<typename NodeBase>
+struct Logger : NodeBase
 {
+    template<typename Traits, typename Router>
     Logger(Config<Traits> const& config, RouterHandler<Router>& handler)
-        : NodeBase<Traits, Router>{config, handler}
+        : NodeBase{config, handler}
         , logLevel{config.logLevel}
         , appName{config.appName}
     {}
@@ -248,7 +249,7 @@ private:
     std::stringstream loggerCache;
 };
 
-template<typename Traits, typename Router>
-std::size_t Logger<Traits, Router>::LOGGERS = 0u;
+template<typename NodeBase>
+std::size_t Logger<NodeBase>::LOGGERS = 0u;
 
 } // namespace stablearb

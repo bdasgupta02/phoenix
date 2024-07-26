@@ -1,14 +1,13 @@
 #pragma once
 
-#include "stablearb/graph/node_base.hpp"
 #include "stablearb/tags.hpp"
 
 namespace stablearb {
 
-template<typename Traits, typename Router>
-struct Sender : NodeBase<Traits, Router>
+template<typename NodeBase>
+struct Sender : NodeBase
 {
-    using NodeBase<Traits, Router>::NodeBase;
+    using NodeBase::NodeBase;
 
     void handle(tag::Sender::MassCancel) {}
 };

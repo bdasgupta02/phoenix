@@ -1,15 +1,13 @@
 #pragma once
 
-#include "stablearb/graph/node_base.hpp"
-
 namespace stablearb {
 
-template<typename Traits, typename Router>
-struct Quoter : NodeBase<Traits, Router>
+template<typename NodeBase>
+struct Quoter : NodeBase
 {
-    using NodeBase<Traits, Router>::NodeBase;
+    using NodeBase::NodeBase;
 
-    using PriceType = Traits::PriceType;
+    using PriceType = NodeBase::Traits::PriceType;
 };
 
 } // namespace stablearb

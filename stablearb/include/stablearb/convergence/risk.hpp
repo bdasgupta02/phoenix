@@ -1,17 +1,15 @@
 #pragma once
 
-#include "stablearb/graph/node_base.hpp"
-
 #include <atomic>
 
 namespace stablearb {
 
-template<typename Traits, typename Router>
-struct Risk : NodeBase<Traits, Router>
+template<typename NodeBase>
+struct Risk : NodeBase
 {
-    using NodeBase<Traits, Router>::NodeBase;
+    using NodeBase::NodeBase;
 
-    using PriceType = Traits::PriceType;
+    using PriceType = NodeBase::Traits::PriceType;
 
     void handle(tag::Risk::Abort) { aborted.test_and_set(); }
 

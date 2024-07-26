@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stablearb/data/config.hpp"
+#include "stablearb/graph/node_base.hpp"
 #include "stablearb/graph/router_handler.hpp"
 
 #include <memory>
@@ -27,43 +28,44 @@ concept HasReturnHandler = requires(Node node, Tag tag, Router& router, Args&&..
 };
 } // namespace concepts
 
-template<template<typename, typename> class... Nodes>
+template<template<typename> class... Nodes>
 struct NodeList
 {};
 
 template<typename, typename>
 struct Router;
 
-template<template<typename, typename> class Node, typename Traits, template<typename, typename> class... Nodes>
-Node<Traits, Router<Traits, NodeList<Nodes...>>>& getNode(Router<Traits, NodeList<Nodes...>>& graph)
+template<template<typename> class Node, typename Traits, template<typename> class... Nodes>
+Node<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>& getNode(Router<Traits, NodeList<Nodes...>>& graph)
 {
     static_assert(
         (std::is_same_v<
-             Node<Traits, Router<Traits, NodeList<Nodes...>>>,
-             Nodes<Traits, Router<Traits, NodeList<Nodes...>>>> ||
+             Node<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>,
+             Nodes<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>> ||
          ...),
         "Invalid node type");
-    return static_cast<Node<Traits, Router<Traits, NodeList<Nodes...>>>&>(graph);
+    return static_cast<Node<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>&>(graph);
 }
 
-template<typename Node, typename Traits, template<typename, typename> class... Nodes>
+template<typename Node, typename Traits, template<typename> class... Nodes>
 Node& getNode(Router<Traits, NodeList<Nodes...>>& graph)
 {
     static_assert(
-        (std::is_same_v<Node, Nodes<Traits, Router<Traits, NodeList<Nodes...>>>> || ...), "Invalid node type");
+        (std::is_same_v<Node, Nodes<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>> || ...),
+        "Invalid node type");
     return static_cast<Node&>(graph);
 }
 
 // Static dependency injection wiring router
 // Nodes should be descending order in priority
 // Injects a traits struct with any relevant types - which blew up complexity a bit woops
-template<typename Traits, template<typename, typename> class... Nodes>
+template<typename Traits, template<typename> class... Nodes>
 struct Router<Traits, NodeList<Nodes...>>
     : public RouterHandler<Router<Traits, NodeList<Nodes...>>>
-    , public Nodes<Traits, Router<Traits, NodeList<Nodes...>>>...
+    , public Nodes<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>...
 {
     Router(Config<Traits> const& config)
-        : Nodes<Traits, Router>(config, static_cast<RouterHandler<Router>&>(*this))...
+        : Nodes<NodeBase<Traits, Router>>(config, static_cast<RouterHandler<Router>&>(*this))...
     {}
 
     RouterHandler<Router>* getHandler() { return static_cast<RouterHandler<Router>*>(this); }
@@ -73,7 +75,7 @@ private:
     void invokeImpl(Tag tag, Args&&... args)
     {
         static_assert(
-            (concepts::HasVoidHandler<Nodes<Traits, Router>, Tag, Router, Args...> || ...),
+            (concepts::HasVoidHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> || ...),
             "At least one node should have this handler");
 
         (tryInvoke<Nodes>(tag, std::forward<Args&&>(args)...), ...);
@@ -83,34 +85,27 @@ private:
     auto retrieveImpl(Tag tag, Args&&... args)
     {
         static_assert(
-            (concepts::HasReturnHandler<Nodes<Traits, Router>, Tag, Router, Args...> ^ ...) == 1,
+            (concepts::HasReturnHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> ^ ...) == 1,
             "Exactly one node should have this handler");
 
         return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...))>(
             tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...));
     }
 
-    template<template<typename, typename> class Node, typename Tag, typename... Args>
+    template<template<typename> class Node, typename Tag, typename... Args>
     void tryInvoke(Tag tag, Args&&... args)
     {
-        if constexpr (concepts::HasVoidHandler<Node<Traits, Router>, Tag, Router, Args...>)
+        if constexpr (concepts::HasVoidHandler<Node<NodeBase<Traits, Router>>, Tag, Router, Args...>)
         {
             auto& node = getNode<Node>(*this);
             node.handle(tag, std::forward<Args&&>(args)...);
         }
     }
 
-    template<
-        template<typename, typename>
-        class FirstNode,
-        template<typename, typename>
-        class... RestNodes,
-        typename Tag,
-        typename... Args>
+    template<template<typename> class FirstNode, template<typename> class... RestNodes, typename Tag, typename... Args>
     auto tryRetrieve(Tag tag, Args&&... args)
     {
-        if constexpr (concepts::
-                          HasReturnHandler<FirstNode<Traits, Router<Traits, NodeList<Nodes...>>>, Tag, Router, Args...>)
+        if constexpr (concepts::HasReturnHandler<FirstNode<NodeBase<Traits, Router>>, Tag, Router, Args...>)
         {
             auto& node = getNode<FirstNode>(*this);
             return std::forward<decltype(node.handle(tag, std::forward<Args&&>(args)...))>(

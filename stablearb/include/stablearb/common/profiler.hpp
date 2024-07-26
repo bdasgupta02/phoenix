@@ -1,7 +1,6 @@
 #pragma once
 
 #include "stablearb/common/logger.hpp"
-#include "stablearb/graph/node_base.hpp"
 #include "stablearb/tags.hpp"
 
 #include <chrono>
@@ -9,10 +8,10 @@
 
 namespace stablearb {
 
-template<typename Traits, typename Router>
-struct Profiler : NodeBase<Traits, Router>
+template<typename NodeBase>
+struct Profiler : NodeBase
 {
-    using NodeBase<Traits, Router>::NodeBase;
+    using NodeBase::NodeBase;
 
     struct Dummy
     {};
@@ -40,7 +39,7 @@ struct Profiler : NodeBase<Traits, Router>
 
     auto handle(tag::Profiler::Guard, std::string_view name)
     {
-        return this->config->profiled ? Timer{*(this->handler), name} : Dummy{};
+        return this->config->profiled ? Timer{*(this->getHandler()), name} : Dummy{};
     }
 };
 
