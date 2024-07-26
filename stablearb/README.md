@@ -10,7 +10,7 @@
 - e.g. USDC/USDT, STETH/ETH
 
 ## Static dependency injection
-This project also includes a very overkill but small implementation for an automatic wiring system for static dependency injection. My design tries to simplify the end-user interface at the expense of some compile time. Just Make a graph like below, and construct/run it like magic:
+This project also includes a very overkill but small implementation for an automatic wiring system for static dependency injection. My design tries to simplify the end-user interface at the expense of some compile time. Just create a graph like below, and construct/run it like magic:
 
 ### Creating nodes
 ```cpp
@@ -25,6 +25,8 @@ struct Stream : NodeBase
 
     // To receive function calls, just use handle(tag) functions 
     // These handlers support any number of universal ref arguments
+    // Note: if multiple nodes have the same handler function signatures, 
+    // they both will receive the function call only for void handlers
     void handle(tag::Stream::Start)
     {
         ...
