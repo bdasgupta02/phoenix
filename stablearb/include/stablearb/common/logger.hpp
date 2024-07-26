@@ -78,7 +78,11 @@ struct Logger
 
     Logger(Logger&& other) { assert(!other.running.test() && "Cannot move running logger"); }
 
-    ~Logger() { shutdown(); }
+    ~Logger()
+    {
+        shutdown();
+        logger->join();
+    }
 
     template<typename Router>
     void handle(Router& graph, tag::Logger::Start)
@@ -98,7 +102,6 @@ struct Logger
         logPath = (std::filesystem::current_path() / ss.str()).string();
         logFile.emplace(std::ofstream(logPath, std::ios::app));
         logger.emplace(&Logger::loggerThread<Router>, this, std::ref(graph));
-        logger->detach();
     }
 
     template<typename... Args>
@@ -143,7 +146,11 @@ struct Logger
             handle(graph, LogLevel::FATAL, filename, line, print, std::forward<Args&&>(args)...);
     }
 
-    void handle(auto&, tag::Logger::Stop) { shutdown(); }
+    void handle(auto&, tag::Logger::Stop)
+    {
+        shutdown();
+        logger->join();
+    }
 
 private:
     struct Entry
@@ -183,6 +190,7 @@ private:
             {
                 logFile->flush();
                 logFile->close();
+                running.clear();
                 graph.invoke(tag::Risk::Abort{});
             }
         };
