@@ -9,6 +9,9 @@ struct Stream
 
     struct Start
     {};
+
+    struct Stop
+    {};
 };
 
 struct Logger

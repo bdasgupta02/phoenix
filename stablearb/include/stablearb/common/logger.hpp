@@ -10,8 +10,10 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <string_view>
@@ -78,7 +80,8 @@ struct Logger
 
     ~Logger() { shutdown(); }
 
-    void handle(auto&, tag::Logger::Start)
+    template<typename Router>
+    void handle(Router& graph, tag::Logger::Start)
     {
         ++LOGGERS;
         assert(LOGGERS == 1 && "Only one logger is allowed to run at a time at one time");
@@ -94,7 +97,7 @@ struct Logger
 
         logPath = (std::filesystem::current_path() / ss.str()).string();
         logFile.emplace(std::ofstream(logPath, std::ios::app));
-        logger.emplace(&Logger::loggerThread, this);
+        logger.emplace(&Logger::loggerThread<Router>, this, std::ref(graph));
     }
 
     template<typename... Args>
@@ -159,18 +162,27 @@ private:
         }
     }
 
-    void loggerThread()
+    template<typename Router>
+    void loggerThread(Router& graph)
     {
         auto const flushInterval = std::chrono::milliseconds(100);
         auto lastFlush = std::chrono::system_clock::now();
         Entry entry;
 
-        auto const processEntry = [&entry, this]
+        auto const processEntry = [&entry, &graph, this]
         {
             std::string const formatted = formatEntry(entry);
             writeEntry(entry, formatted);
+
             if (entry.print)
                 std::cout << formatted << std::endl;
+
+            if (entry.level == LogLevel::FATAL)
+            {
+                shutdown();
+                graph.invoke(tag::Stream::Stop{});
+                std::abort();
+            }
         };
 
         while (running.test())

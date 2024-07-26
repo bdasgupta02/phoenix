@@ -37,6 +37,11 @@ struct Stream : NodeBase
         // wrap in try catch and log
     }
 
+    void handle(auto& graph, tag::Stream::Stop)
+    {
+        // same thing as dtor
+    }
+
     boost::asio::io_context ioContext;
     boost::asio::ip::tcp::socket socket{ioContext};
     boost::asio::ip::tcp::resolver resolver{ioContext};
