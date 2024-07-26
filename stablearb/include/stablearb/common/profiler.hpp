@@ -9,9 +9,10 @@
 
 namespace stablearb {
 
-struct Profiler : NodeBase
+template<typename Traits>
+struct Profiler : NodeBase<Traits>
 {
-    using NodeBase::NodeBase;
+    using NodeBase<Traits>::NodeBase;
 
     struct Dummy
     {};
@@ -39,7 +40,7 @@ struct Profiler : NodeBase
 
     auto handle(auto& graph, tag::Profiler::Guard, std::string_view name)
     {
-        return config->profiled ? Timer{graph, name} : Dummy{};
+        return this->config->profiled ? Timer{graph, name} : Dummy{};
     }
 };
 

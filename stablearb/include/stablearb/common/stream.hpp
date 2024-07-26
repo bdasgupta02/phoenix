@@ -12,12 +12,12 @@
 namespace stablearb {
 
 template<typename Traits>
-struct Stream : NodeBase
+struct Stream : NodeBase<Traits>
 {
     using PriceType = Traits::PriceType;
 
-    Stream(Config const& config)
-        : NodeBase{config}
+    Stream(Config<Traits> const& config)
+        : NodeBase<Traits>{config}
         , recvBuffer(4096u)
         , sendBuffer(4096u)
     {}
@@ -25,11 +25,6 @@ struct Stream : NodeBase
     ~Stream()
     {
         // mass exit, mass cancel, logout, disconnect on dtor here
-    }
-
-    void handle(auto& graph, tag::Stream::Login)
-    {
-        // wrap in try catch and log
     }
 
     void handle(auto& graph, tag::Stream::Start)

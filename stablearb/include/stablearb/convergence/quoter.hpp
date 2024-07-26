@@ -5,9 +5,9 @@
 namespace stablearb {
 
 template<typename Traits>
-struct Quoter : NodeBase
+struct Quoter : NodeBase<Traits>
 {
-    using NodeBase::NodeBase;
+    using NodeBase<Traits>::NodeBase;
 
     using PriceType = Traits::PriceType;
 };

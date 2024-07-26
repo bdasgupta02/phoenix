@@ -5,9 +5,10 @@
 
 namespace stablearb {
 
-struct Sender : NodeBase
+template<typename Traits>
+struct Sender : NodeBase<Traits>
 {
-    using NodeBase::NodeBase;
+    using NodeBase<Traits>::NodeBase;
 
     void handle(auto& graph, tag::Sender::MassCancel) {}
 };

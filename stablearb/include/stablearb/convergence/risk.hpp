@@ -7,9 +7,9 @@
 namespace stablearb {
 
 template<typename Traits>
-struct Risk : NodeBase
+struct Risk : NodeBase<Traits>
 {
-    using NodeBase::NodeBase;
+    using NodeBase<Traits>::NodeBase;
 
     using PriceType = Traits::PriceType;
 

@@ -3,13 +3,14 @@
 namespace stablearb {
 
 // To be optionally inherited by nodes to gain access to configuration
+template<typename Traits>
 struct NodeBase
 {
-    NodeBase(Config const& config)
+    NodeBase(Config<Traits> const& config)
         : config{&config}
     {}
 
-    Config const* config{nullptr};
+    Config<Traits> const* config{nullptr};
 };
 
 } // namespace stablearb

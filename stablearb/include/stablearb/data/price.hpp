@@ -9,6 +9,8 @@ template<std::uint8_t Precision>
 class Price
 {
 public:
+    Price() = default;
+
     Price(double price)
         : value(std::round(price * multiplier))
     {}

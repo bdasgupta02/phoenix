@@ -18,26 +18,28 @@ struct Traits
 
 // clang-format off
 using Graph = Router<
-    Risk<Traits>,
-    Stream<Traits>,
-    Quoter<Traits>,
-    Sender,
-    Profiler,
-    Logger
+    Traits,
+    NodeList<
+        Risk,
+        Stream,
+        Quoter,
+        Sender,
+        Profiler,
+        Logger
+    >
 >;
 // clang-format on
 
 int main(int argc, char* argv[])
 {
-    Config config;
+    Config<Traits> config;
     if (!config.apply(argc, argv))
         return 1;
 
     Graph graph{config};
 
     graph.invoke(tag::Logger::Start{});
-    STABLEARB_LOG_INFO_PRINT(graph, "Starting USDC/USDT Convergence Arbitrage System");
+    STABLEARB_LOG_INFO_PRINT(graph, "Starting Convergence Arbitrage System");
 
-    graph.invoke(tag::Stream::Login{});
     graph.invoke(tag::Stream::Start{});
 }

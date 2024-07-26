@@ -69,9 +69,10 @@ consteval std::string_view getFilename(std::string_view path)
     graph.invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 // clang-format on
 
+template<typename Traits>
 struct Logger
 {
-    Logger(Config const& config)
+    Logger(Config<Traits> const& config)
         : logLevel{config.logLevel}
         , appName{config.appName}
     {}
@@ -181,7 +182,7 @@ private:
         auto const processEntry = [&entry, &graph, this]
         {
             std::string const formatted = formatEntry(entry);
-            writeEntry(entry, formatted);
+            writeEntry(formatted);
 
             if (entry.print)
                 std::cout << formatted << std::endl;
@@ -217,7 +218,7 @@ private:
         logFile->close();
     }
 
-    void writeEntry(Entry const& entry, std::string_view formatted) { *logFile << formatted << std::endl; }
+    void writeEntry(std::string_view formatted) { *logFile << formatted << std::endl; }
 
     std::string formatEntry(Entry const& entry)
     {
@@ -260,6 +261,7 @@ private:
     std::stringstream loggerCache;
 };
 
-std::size_t Logger::LOGGERS = 0u;
+template<typename Traits>
+std::size_t Logger<Traits>::LOGGERS = 0u;
 
 } // namespace stablearb

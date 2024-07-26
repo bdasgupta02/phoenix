@@ -4,9 +4,6 @@ namespace stablearb::tag {
 
 struct Stream
 {
-    struct Login
-    {};
-
     struct Start
     {};
 
