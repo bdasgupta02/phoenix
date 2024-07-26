@@ -6,6 +6,7 @@
 #include <boost/describe/enum_to_string.hpp>
 #include <boost/program_options.hpp>
 
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -36,7 +37,8 @@ struct Config
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
-                ("exit-ticks", po::value<int>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
+                ("exit-ticks", po::value<std::uint32_t>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
+                ("inventory-limit", po::value<std::uint32_t>(&inventoryLimit)->default_value(inventoryLimit), "Total inventory limit (mid-point will be considered market-neutral)")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
             ;
             // clang-format on
@@ -77,7 +79,8 @@ struct Config
     std::string kind;
     bool profiled = false;
     double fee = 0.00;
-    int exitTicks = 1;
+    std::uint32_t exitTicks = 1;
+    std::uint32_t inventoryLimit = 50;
     LogLevel logLevel = LogLevel::INFO;
 };
 

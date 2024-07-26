@@ -46,7 +46,8 @@ struct Router : public Nodes...
     {}
 
     // Use invoke() to dispatch a void call, and retrieve() to dispatch a non-void call
-    // All of these handle() functions in the nodes should begin with (graph&, tag, ...<args>)
+    // The receiver node(s) just need handle() functions to receive the dispatch calls
+    // All handle() functions in the receiver nodes should begin with (graph&, tag, ...<args>)
 
     template<typename Tag, typename... Args>
     void invoke(Tag tag, Args&&... args)
