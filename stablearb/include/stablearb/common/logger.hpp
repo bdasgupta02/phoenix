@@ -179,7 +179,8 @@ private:
 
             if (entry.level == LogLevel::FATAL)
             {
-                shutdown();
+                logFile->flush();
+                logFile->close();
                 graph.invoke(tag::Stream::Stop{});
                 std::abort();
             }
