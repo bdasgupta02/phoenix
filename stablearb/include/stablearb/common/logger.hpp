@@ -98,6 +98,7 @@ struct Logger
         logPath = (std::filesystem::current_path() / ss.str()).string();
         logFile.emplace(std::ofstream(logPath, std::ios::app));
         logger.emplace(&Logger::loggerThread<Router>, this, std::ref(graph));
+        logger->detach();
     }
 
     template<typename... Args>
@@ -142,6 +143,8 @@ struct Logger
             handle(graph, LogLevel::FATAL, filename, line, print, std::forward<Args&&>(args)...);
     }
 
+    void handle(auto&, tag::Logger::Stop) { shutdown(); }
+
 private:
     struct Entry
     {
@@ -157,7 +160,6 @@ private:
         if (running.test())
         {
             running.clear();
-            logger->join();
             --LOGGERS;
         }
     }
@@ -181,8 +183,7 @@ private:
             {
                 logFile->flush();
                 logFile->close();
-                graph.invoke(tag::Stream::Stop{});
-                std::abort();
+                graph.invoke(tag::Risk::Abort{});
             }
         };
 

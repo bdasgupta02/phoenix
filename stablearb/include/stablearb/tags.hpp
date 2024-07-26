@@ -18,6 +18,9 @@ struct Logger
 {
     struct Start
     {};
+    
+    struct Stop
+    {};
 
     struct Log
     {};
@@ -43,9 +46,6 @@ struct Quoter
 
 struct Sender
 {
-    struct MassExit
-    {};
-
     struct MassCancel
     {};
 
@@ -68,6 +68,9 @@ struct Risk
     {};
 
     struct Error
+    {};
+
+    struct Abort
     {};
 };
 
