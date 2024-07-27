@@ -16,6 +16,7 @@ namespace io = ::boost::asio;
 
 namespace stablearb {
 
+// Single-threaded TCP stream for Deribit with FIX
 template<typename NodeBase>
 struct Stream : NodeBase
 {
@@ -71,15 +72,10 @@ struct Stream : NodeBase
 private:
     void login()
     {
-        auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
         std::string_view msg = fix_msg::login(nextSeqNum, config->username, config->password, config->nonce);
-
-        boost::system::error_code error;
-        io::write(socket, io::buffer(msg), error);
-        STABLEARB_LOG_VERIFY(this->getHandler(), (!error), "Error while logging in", error.message());
-        ++nextSeqNum;
+        sendMsg(msg);
 
         // get response
     }
@@ -87,14 +83,24 @@ private:
     inline void start()
     {
         auto* handler = this->getHandler();
+
         [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
         // start whole pipeline
         // take last message for MD if multiple
     }
 
-    inline auto recv()
+    /*inline FIXReader recvMsg()*/
+    /*{*/
+    /*    // read one message maybe*/
+    /*    return {};*/
+    /*}*/
+
+    inline void sendMsg(std::string_view msg)
     {
-        // read one message maybe
+        boost::system::error_code error;
+        io::write(socket, io::buffer(msg), error);
+        STABLEARB_LOG_VERIFY(this->getHandler(), (!error), "Error while sending message", msg, error.message());
+        ++nextSeqNum;
     }
 };
 

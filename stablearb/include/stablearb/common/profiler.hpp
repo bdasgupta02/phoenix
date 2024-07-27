@@ -5,6 +5,7 @@
 #include "stablearb/tags.hpp"
 
 #include <chrono>
+#include <optional>
 #include <string_view>
 
 namespace stablearb {
@@ -18,15 +19,16 @@ struct Profiler : NodeBase
     template<typename Handler>
     struct Timer
     {
-        Timer()
-            : enabled{false}
-        {}
+        struct ControlBlock
+        {
+            Handler* handler = nullptr;
+            std::string_view name;
+            std::chrono::high_resolution_clock::time_point start;
+        };
 
+        Timer() = default;
         Timer(Handler* handler, std::string_view name)
-            : handler{handler}
-            , enabled{true}
-            , name{name}
-            , start{std::chrono::high_resolution_clock::now()}
+            : controlBlock{{.handler = handler, .name = name, .start = std::chrono::high_resolution_clock::now()}}
         {}
 
         Timer(Timer&&) = default;
@@ -37,18 +39,15 @@ struct Profiler : NodeBase
 
         ~Timer()
         {
-            if (enabled) [[unlikely]]
+            if (controlBlock) [[unlikely]]
             {
                 auto end = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-                STABLEARB_LOG_INFO(handler, name, "took", duration.count(), "µs");
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - controlBlock->start);
+                STABLEARB_LOG_INFO(controlBlock->handler, controlBlock->name, "took", duration.count(), "µs");
             }
         }
 
-        Handler* handler = nullptr;
-        bool enabled;
-        std::string_view name;
-        std::chrono::high_resolution_clock::time_point start;
+        std::optional<ControlBlock> controlBlock = std::nullopt;
     };
 
     inline Timer<RouterHandler<Router>> handle(tag::Profiler::Guard, std::string_view name)

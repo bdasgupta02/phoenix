@@ -28,9 +28,8 @@ consteval std::string_view getFilename(std::string_view path)
 {
     auto lastSlash = path.find_last_of("/\\");
     if (lastSlash == std::string_view::npos)
-    {
         return path;
-    }
+
     return path.substr(lastSlash + 1);
 }
 
@@ -39,34 +38,17 @@ consteval std::string_view getFilename(std::string_view path)
 
 // clang-format off
 #define STABLEARB_LOG_DEBUG(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_DEBUG_PRINT(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
+    handler->invoke(tag::Logger::Log{}, LogLevel::DEBUG, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 #define STABLEARB_LOG_INFO(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_INFO_PRINT(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
+    handler->invoke(tag::Logger::Log{}, LogLevel::INFO, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 #define STABLEARB_LOG_WARN(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_WARN_PRINT(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
+    handler->invoke(tag::Logger::Log{}, LogLevel::WARN, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 #define STABLEARB_LOG_ERROR(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_ERROR_PRINT(handler, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
-#define STABLEARB_LOG_FATAL(handler, condition, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_FATAL_PRINT(handler, condition, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
-
+    handler->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
+#define STABLEARB_LOG_FATAL(handler, ...) \
+    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 #define STABLEARB_LOG_VERIFY(handler, condition, ...) \
-    handler->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
-#define STABLEARB_LOG_VERIFY_PRINT(handler, condition, ...) \
-    handler->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+    handler->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 // clang-format on
 
 template<typename NodeBase>
@@ -108,7 +90,7 @@ struct Logger : NodeBase
 
     template<typename... Args>
     inline void handle(
-        tag::Logger::Log, LogLevel level, std::string_view filename, int line, bool print = false, Args&&... args)
+        tag::Logger::Log, LogLevel level, std::string_view filename, int line, Args&&... args)
     {
         if (level < logLevel)
             return;
@@ -119,7 +101,6 @@ struct Logger : NodeBase
 
         Entry entry{
             .line = line,
-            .print = print,
             .level = level,
             .message = handlerCache.str(),
             .filename = std::string{filename}};
@@ -130,10 +111,10 @@ struct Logger : NodeBase
 
     template<typename... Args>
     inline void handle(
-        tag::Logger::Verify, bool condition, std::string_view filename, int line, bool print = false, Args&&... args)
+        tag::Logger::Verify, bool condition, std::string_view filename, int line, Args&&... args)
     {
         if (!condition)
-            handle(tag::Logger::Log{}, LogLevel::FATAL, filename, line, print, std::forward<Args&&>(args)...);
+            handle(tag::Logger::Log{}, LogLevel::FATAL, filename, line, std::forward<Args&&>(args)...);
     }
 
     void handle(tag::Logger::Stop)
@@ -146,7 +127,6 @@ private:
     struct Entry
     {
         int line;
-        bool print;
         LogLevel level;
         std::string message;
         std::string filename;
@@ -167,12 +147,13 @@ private:
         auto lastFlush = std::chrono::system_clock::now();
         Entry entry;
 
-        auto const processEntry = [&entry, this]
+        auto* config = this->getConfig();
+        auto const processEntry = [&entry, config, this]
         {
             std::string const formatted = formatEntry(entry);
             writeEntry(formatted);
 
-            if (entry.print)
+            if (config->printLogs)
                 std::cout << formatted << std::endl;
 
             if (entry.level == LogLevel::FATAL)

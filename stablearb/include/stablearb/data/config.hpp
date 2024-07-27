@@ -33,8 +33,8 @@ struct Config
             // clang-format off
             desc.add_options()
                 ("help,h", "see all commands")
-                ("username", po::value<std::string>(&username)->required(), "Deribit username")
-                ("password", po::value<std::string>(&password)->required(), "Deribit password")
+                ("auth-username", po::value<std::string>(&username)->required(), "Deribit username")
+                ("auth-password", po::value<std::string>(&password)->required(), "Deribit password")
                 ("auth-nonce", po::value<std::string>(&nonce)->required(), "Deribit Base64 raw nonce data")
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
@@ -47,6 +47,7 @@ struct Config
                 ("exit-ticks", po::value<std::uint32_t>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
                 ("inventory-limit", po::value<std::uint32_t>(&inventoryLimit)->default_value(inventoryLimit), "Total inventory limit")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
+                ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
             ;
             // clang-format on
 
@@ -93,6 +94,7 @@ struct Config
     std::uint32_t exitTicks = 1;
     std::uint32_t inventoryLimit = 50;
     LogLevel logLevel = LogLevel::INFO;
+    bool printLogs = false;
 };
 
 } // namespace stablearb
