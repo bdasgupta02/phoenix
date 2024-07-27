@@ -23,6 +23,7 @@ concept numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 
 namespace stablearb {
 
+static constexpr char FIX_FIELD_DELIMITER[] = "\x01";
 static constexpr char FIX_MSG_DELIMITER[] = "\x018=";
 static constexpr char FIX_PROTOCOL[] = "FIX.4.4";
 static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4; // 1 for \0; 3 for tag, =, \x01
@@ -71,11 +72,14 @@ struct FIXBuilder
 
     inline void append(std::string_view tag, bool value) { append(tag, value ? 'Y' : 'N'); }
 
-    inline void append(std::string_view tag, char value) { appendAll(tag, '=', value, '\x01'); }
+    inline void append(std::string_view tag, char value) { appendAll(tag, '=', value, FIX_FIELD_DELIMITER); }
 
     inline void append(std::string_view tag, char const* value) { append(tag, std::string_view(value)); }
 
-    inline void append(std::string_view tag, std::string_view value) { appendAll(tag, '=', value, '\x01'); }
+    inline void append(std::string_view tag, std::string_view value)
+    {
+        appendAll(tag, '=', value, FIX_FIELD_DELIMITER);
+    }
 
     inline void appendHeader(std::size_t seqNum, char msgType)
     {
@@ -176,7 +180,7 @@ inline FIXBuilder
     std::uint64_t timeEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
     std::string_view timeStr = uint64ToString(timeEpoch);
 
-    builder.appendAll("96", '=', timeStr, '.', nonce);
+    builder.appendAll("96", '=', timeStr, '.', nonce, FIX_FIELD_DELIMITER);
     builder.append("108", 5);
     builder.append("553", username);
     builder.append("554", password);
