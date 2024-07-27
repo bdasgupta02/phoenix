@@ -74,12 +74,10 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        FIXBuilder msg = fix_msg::login(nextSeqNum, config->username, config->password, config->nonce);
-        auto serialized = msg.serialize();
-        STABLEARB_LOG_INFO_PRINT(handler, serialized);
+        std::string_view msg = fix_msg::login(nextSeqNum, config->username, config->password, config->nonce);
 
         boost::system::error_code error;
-        io::write(socket, io::buffer(serialized), error);
+        io::write(socket, io::buffer(msg), error);
 
         STABLEARB_LOG_VERIFY(this->getHandler(), true, "Error while logging in", error.message());
         ++nextSeqNum;

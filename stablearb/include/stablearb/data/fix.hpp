@@ -13,6 +13,10 @@
 #include <string_view>
 #include <vector>
 
+// Existing C++ implementations of FIX protocol were boring,
+// so this is one that reduces copying and allocations,
+// and assumes single-threaded use
+
 // TODO: equivalence between reader and writer, or raw string and writer
 // or tbh just check message type field in reader
 
@@ -31,6 +35,8 @@ static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4;
 // Assumes synchronous connectivity and tries to reduce copies
 struct FIXBuilder
 {
+    constexpr FIXBuilder() { buffer.reserve(8192u); }
+
     constexpr FIXBuilder(std::size_t seqNum, char msgType)
     {
         buffer.reserve(8192u);
@@ -44,6 +50,12 @@ struct FIXBuilder
     {
         buffer.clear();
         size = 0;
+    }
+
+    inline void reset(std::size_t seqNum, char msgType)
+    {
+        clear();
+        appendHeader(seqNum, msgType);
     }
 
     template<typename... Args>
@@ -171,10 +183,11 @@ private:
 
 namespace fix_msg {
 
-inline FIXBuilder
+inline std::string_view
     login(std::size_t seqNum, std::string_view username, std::string_view password, std::string_view nonce)
 {
-    FIXBuilder builder{seqNum, 'A'};
+    static FIXBuilder builder;
+    builder.reset(seqNum, 'A');
 
     auto epoch = std::chrono::steady_clock::now().time_since_epoch();
     std::uint64_t timeEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
@@ -186,10 +199,15 @@ inline FIXBuilder
     builder.append("554", password);
     builder.append("9001", true);
 
-    return std::move(builder);
+    return builder.serialize();
 }
 
-inline FIXBuilder logout(std::size_t seqNum) { return {seqNum, '5'}; }
+inline std::string_view logout(std::size_t seqNum)
+{
+    static FIXBuilder builder;
+    builder.reset(seqNum, '5');
+    return builder.serialize();
+}
 
 } // namespace fix_msg
 
