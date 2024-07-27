@@ -1,8 +1,8 @@
 #pragma once
 
-#include "boost/unordered/unordered_flat_map.hpp"
+#include "stablearb/helpers/conversion.hpp"
 
-#include <iostream>
+#include "boost/unordered/unordered_flat_map.hpp"
 
 #include <charconv>
 #include <chrono>
@@ -12,6 +12,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+// TODO: equivalence between reader and writer, or raw string and writer
+// or tbh just check message type field in reader
 
 namespace {
 template<typename T>
@@ -27,10 +30,10 @@ static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4;
 // Assumes synchronous connectivity and tries to reduce copies
 struct FIXBuilder
 {
-    constexpr FIXBuilder(std::size_t seqNum)
+    constexpr FIXBuilder(std::size_t seqNum, char msgType)
     {
         buffer.reserve(8192u);
-        appendHeader(seqNum);
+        appendHeader(seqNum, msgType);
     }
 
     constexpr FIXBuilder(FIXBuilder&&) = default;
@@ -40,6 +43,12 @@ struct FIXBuilder
     {
         buffer.clear();
         size = 0;
+    }
+
+    template<typename... Args>
+    inline void appendAll(Args&&... args)
+    {
+        (append(std::forward<Args&&>(args)), ...);
     }
 
     template<typename Traits>
@@ -62,28 +71,16 @@ struct FIXBuilder
 
     inline void append(std::string_view tag, bool value) { append(tag, value ? 'Y' : 'N'); }
 
-    inline void append(std::string_view tag, char value)
-    {
-        append(tag);
-        append('=');
-        append(value);
-        append('\x01');
-    }
+    inline void append(std::string_view tag, char value) { appendAll(tag, '=', value, '\x01'); }
 
     inline void append(std::string_view tag, char const* value) { append(tag, std::string_view(value)); }
 
-    inline void append(std::string_view tag, std::string_view value)
-    {
-        append(tag);
-        append('=');
-        append(value);
-        append('\x01');
-    }
+    inline void append(std::string_view tag, std::string_view value) { appendAll(tag, '=', value, '\x01'); }
 
-    inline void appendHeader(std::size_t seqNum)
+    inline void appendHeader(std::size_t seqNum, char msgType)
     {
         append("8", FIX_PROTOCOL);
-        append("35", "A");
+        append("35", msgType);
         append("49", "bikram");
         append("56", "DERIBITSERVER");
         append("34", 1);
@@ -137,10 +134,10 @@ struct FIXReader
     FIXReader(FIXReader&&) = default;
     FIXReader& operator=(FIXReader&&) = default;
 
-    std::string_view getString(std::string const& tag) { return fields[tag]; }
+    inline std::string_view getString(std::string const& tag) { return fields[tag]; }
 
     template<numerical T>
-    T getNumber(std::string const& tag)
+    inline T getNumber(std::string const& tag)
     {
         auto val = fields[tag];
         T result;
@@ -149,13 +146,13 @@ struct FIXReader
     }
 
     template<typename Traits>
-    Traits::PriceType getPrice(std::string const& tag)
+    inline Traits::PriceType getPrice(std::string const& tag)
     {
         double value = getNumber<double>(tag);
         return {value};
     }
 
-    bool getBool(std::string const& tag)
+    inline bool getBool(std::string const& tag)
     {
         auto val = getString(tag);
         if (val == "Y" || val == "y" || val == "1" || val == "true" || val == "TRUE" || val == "T" || val == "t")
@@ -170,23 +167,25 @@ private:
 
 namespace fix_msg {
 
-FIXBuilder login(std::size_t seqNum, std::string_view username, std::string_view password, std::string nonce)
+inline FIXBuilder
+    login(std::size_t seqNum, std::string_view username, std::string_view password, std::string_view nonce)
 {
-    FIXBuilder builder(seqNum);
+    FIXBuilder builder{seqNum, 'A'};
 
-    auto now = std::chrono::system_clock::now();
-    auto nowC = std::chrono::system_clock::to_time_t(now);
-    char timeStr[20];
-    std::strftime(timeStr, sizeof(timeStr), "%Y%m%d-%H:%M:%S", std::gmtime(&nowC));
+    auto epoch = std::chrono::steady_clock::now().time_since_epoch();
+    std::uint64_t timeEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
+    std::string_view timeStr = uint64ToString(timeEpoch);
 
+    builder.appendAll("96", '=', timeStr, '.', nonce);
     builder.append("108", 5);
-    builder.append("96", std::string{timeStr} + "." + nonce);
     builder.append("553", username);
     builder.append("554", password);
     builder.append("9001", true);
 
     return std::move(builder);
 }
+
+inline FIXBuilder logout(std::size_t seqNum) { return {seqNum, '5'}; }
 
 } // namespace fix_msg
 

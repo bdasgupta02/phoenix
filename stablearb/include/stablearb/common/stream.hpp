@@ -34,6 +34,9 @@ struct Stream : NodeBase
 
     void handle(tag::Stream::Start)
     {
+        auto* handler = this->getHandler();
+        auto* config = this->getConfig();
+
         try
         {
             io::ip::tcp::resolver resolver{ioContext};
@@ -47,6 +50,7 @@ struct Stream : NodeBase
         }
 
         login();
+        recv();
     }
 
     void handle(tag::Stream::Stop)
@@ -79,6 +83,14 @@ private:
 
         STABLEARB_LOG_VERIFY(this->getHandler(), true, "Error while logging in", error.message());
         ++nextSeqNum;
+
+        // get response
+    }
+
+    void recv()
+    {
+        // read messages
+        // take last message for MD if multiple
     }
 };
 
