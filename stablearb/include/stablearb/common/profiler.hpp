@@ -17,19 +17,25 @@ struct Profiler : NodeBase
     using Traits = NodeBase::Traits;
     using Router = NodeBase::Router;
 
-    template<typename Handle>
+    template<typename Handler>
     struct Timer
     {
         Timer()
             : enabled{false}
         {}
 
-        Timer(Handle* handle, std::string_view name)
-            : handle{handle}
+        Timer(Handler* handler, std::string_view name)
+            : handler{handler}
             , enabled{true}
             , name{name}
             , start{std::chrono::high_resolution_clock::now()}
         {}
+
+        Timer(Timer&&) = default;
+        Timer& operator=(Timer&&) = default;
+
+        Timer(Timer const&) = delete;
+        Timer& operator=(Timer const&) = delete;
 
         ~Timer()
         {
@@ -37,11 +43,11 @@ struct Profiler : NodeBase
             {
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-                STABLEARB_LOG_INFO(handle, name, "took", duration.count(), "µs");
+                STABLEARB_LOG_INFO(handler, name, "took", duration.count(), "µs");
             }
         }
 
-        Handle* handle = nullptr;
+        Handler* handler = nullptr;
         bool enabled;
         std::string_view name;
         std::chrono::high_resolution_clock::time_point start;

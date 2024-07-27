@@ -50,7 +50,7 @@ struct Stream : NodeBase
         }
 
         login();
-        recv();
+        listen();
     }
 
     void handle(tag::Stream::Stop)
@@ -85,12 +85,15 @@ private:
         // get response
     }
 
-    inline void recv()
+    inline void listen()
+    {}
+
+    inline auto recv()
     {
         auto* handler = this->getHandler();
 
         [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Receiving upstream data");
-        // read messages
+        // read one message maybe
         // take last message for MD if multiple
     }
 };

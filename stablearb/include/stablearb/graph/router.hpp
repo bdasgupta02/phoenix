@@ -58,7 +58,9 @@ Node& getNode(Router<Traits, NodeList<Nodes...>>& graph)
 
 // Static dependency injection wiring router
 // Nodes should be descending order in priority
-// Injects a traits struct with any relevant types - which blew up complexity a bit woops
+// Checks if the called functions are implemented
+// Can be simplified a bit more imo
+// Note: retrieval functions can return lval or ptr
 template<typename Traits, template<typename> class... Nodes>
 struct Router<Traits, NodeList<Nodes...>>
     : public RouterHandler<Router<Traits, NodeList<Nodes...>>>

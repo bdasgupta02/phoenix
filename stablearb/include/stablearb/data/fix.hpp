@@ -14,8 +14,7 @@
 #include <vector>
 
 // Existing C++ implementations of FIX protocol were boring,
-// so this is one that reduces copying and allocations,
-// and assumes single-threaded use
+// so this is one that reduces copying and allocations, and assumes single-threaded use
 
 // TODO: equivalence between reader and writer, or raw string and writer
 // or tbh just check message type field in reader
@@ -27,7 +26,7 @@ concept numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 
 namespace stablearb {
 
-static constexpr char FIX_FIELD_DELIMITER[] = "\x01";
+static constexpr char FIX_FIELD_DELIMITER = '\x01';
 static constexpr char FIX_MSG_DELIMITER[] = "\x018=";
 static constexpr char FIX_PROTOCOL[] = "FIX.4.4";
 static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4; // 1 for \0; 3 for tag, =, \x01
@@ -37,6 +36,7 @@ struct FIXBuilder
 {
     FIXBuilder();
     FIXBuilder(std::size_t seqNum, char msgType);
+
     FIXBuilder(FIXBuilder&&) = default;
     FIXBuilder& operator=(FIXBuilder&&) = default;
     FIXBuilder(FIXBuilder const&) = default;
@@ -93,7 +93,7 @@ struct FIXBuilder
     {
         append("8", FIX_PROTOCOL);
         append("35", msgType);
-        append("49", "bikram");
+        append("49", 'z');
         append("56", "DERIBITSERVER");
         append("34", 1);
     }
@@ -143,6 +143,7 @@ private:
 struct FIXReader
 {
     FIXReader(std::string_view data);
+
     FIXReader(FIXReader&&) = default;
     FIXReader& operator=(FIXReader&&) = default;
 
@@ -167,10 +168,7 @@ struct FIXReader
     inline bool getBool(std::string const& tag)
     {
         auto val = getString(tag);
-        if (val == "Y" || val == "y" || val == "1" || val == "true" || val == "TRUE" || val == "T" || val == "t")
-            return true;
-
-        return false;
+        return val == "Y" || val == "y";
     }
 
 private:
