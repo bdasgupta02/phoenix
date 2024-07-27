@@ -85,7 +85,7 @@ private:
         // get response
     }
 
-    void recv()
+    inline void recv()
     {
         auto* handler = this->getHandler();
 

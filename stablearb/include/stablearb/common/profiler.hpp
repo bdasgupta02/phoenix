@@ -33,7 +33,7 @@ struct Profiler : NodeBase
 
         ~Timer()
         {
-            if (enabled)
+            if (enabled) [[unlikely]]
             {
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -47,7 +47,7 @@ struct Profiler : NodeBase
         std::chrono::high_resolution_clock::time_point start;
     };
 
-    Timer<RouterHandler<Router>> handle(tag::Profiler::Guard, std::string_view name)
+    inline Timer<RouterHandler<Router>> handle(tag::Profiler::Guard, std::string_view name)
     {
         return this->config->profiled ? Timer<RouterHandler<Router>>{this->getHandler(), name}
                                       : Timer<RouterHandler<Router>>{};
