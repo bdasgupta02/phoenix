@@ -35,16 +35,18 @@ static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4;
 // Assumes synchronous connectivity and tries to reduce copies
 struct FIXBuilder
 {
-    constexpr FIXBuilder() { buffer.reserve(8192u); }
+    FIXBuilder() { buffer.reserve(8192u); }
 
-    constexpr FIXBuilder(std::size_t seqNum, char msgType)
+    FIXBuilder(std::size_t seqNum, char msgType)
     {
         buffer.reserve(8192u);
         appendHeader(seqNum, msgType);
     }
 
-    constexpr FIXBuilder(FIXBuilder&&) = default;
-    constexpr FIXBuilder& operator=(FIXBuilder&&) = default;
+    FIXBuilder(FIXBuilder&&) = default;
+    FIXBuilder& operator=(FIXBuilder&&) = default;
+    FIXBuilder(FIXBuilder const&) = default;
+    FIXBuilder& operator=(FIXBuilder const&) = default;
 
     inline void clear()
     {
