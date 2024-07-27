@@ -5,10 +5,11 @@
 
 namespace stablearb {
 // To be optionally inherited by nodes to gain access to configuration
-template<typename _Traits, typename Router>
+template<typename _Traits, typename _Router>
 struct NodeBase
 {
     using Traits = _Traits;
+    using Router = _Router;
 
     NodeBase(Config<Traits> const& config, RouterHandler<Router>& handler)
         : config{&config}

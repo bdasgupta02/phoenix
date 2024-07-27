@@ -87,6 +87,9 @@ private:
 
     void recv()
     {
+        auto* handler = this->getHandler();
+
+        [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Receiving upstream data");
         // read messages
         // take last message for MD if multiple
     }

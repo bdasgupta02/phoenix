@@ -113,7 +113,7 @@ private:
         }
         else
         {
-            static_assert(sizeof...(RestNodes) != 0, "Exactly one node should have this handler");
+            static_assert(sizeof...(RestNodes) != 0, "No nodes have this handler");
             return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...))>(
                 tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...));
         }
@@ -122,8 +122,8 @@ private:
     template<typename Tag, typename... Args>
     friend void RouterHandler<Router>::invoke(Tag tag, Args&&... args);
 
-    template<typename Tag, typename Router, typename... Args>
-    friend auto RouterHandler<Router>::retrieve(Tag tag, Args&&... args);
+    template<typename Tag, typename... Args>
+    friend decltype(auto) RouterHandler<Router>::retrieve(Tag tag, Args&&... args);
 };
 
 } // namespace stablearb

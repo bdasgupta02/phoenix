@@ -2,6 +2,14 @@
 
 namespace stablearb {
 
+FIXBuilder::FIXBuilder() { buffer.reserve(8192u); }
+
+FIXBuilder::FIXBuilder(std::size_t seqNum, char msgType)
+{
+    buffer.reserve(8192u);
+    appendHeader(seqNum, msgType);
+}
+
 // TODO: add checksum verification in the same loop
 FIXReader::FIXReader(std::string_view data)
 {
