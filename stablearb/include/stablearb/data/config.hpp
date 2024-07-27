@@ -35,8 +35,9 @@ struct Config
                 ("help,h", "see all commands")
                 ("username", po::value<std::string>(&username)->required(), "Deribit username")
                 ("password", po::value<std::string>(&password)->required(), "Deribit password")
-                ("host", po::value<std::string>(&password)->required(), "Deribit host address ([www/test].deribit.com for [prod/test])")
-                ("port", po::value<std::string>(&password)->required(), "Deribit port (usually 9881 for TCP)")
+                ("auth-nonce", po::value<std::string>(&nonce)->required(), "Deribit Base64 raw nonce data")
+                ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
+                ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
                 ("appName", po::value<std::string>(&appName)->required(), "Application name")
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
                 ("lotSize", po::value<double>(&lotSizeDouble), "Quote lot size mininimum increment")
@@ -78,6 +79,7 @@ struct Config
     // deribit connectivity
     std::string username;
     std::string password;
+    std::string nonce;
     std::string host = "www.deribit.com"; // test.deribit.com:9881 for test net
     std::string port = "9881";
 

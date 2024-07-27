@@ -34,9 +34,6 @@ struct Stream : NodeBase
 
     void handle(tag::Stream::Start)
     {
-        auto* handler = this->getHandler();
-        auto* config = this->getConfig();
-
         try
         {
             io::ip::tcp::resolver resolver{ioContext};
@@ -46,7 +43,7 @@ struct Stream : NodeBase
         }
         catch (std::exception const& e)
         {
-            STABLEARB_LOG_FATAL_PRINT(handler, "Connection error", e.what());
+            STABLEARB_LOG_FATAL(handler, "Connection error", e.what());
         }
 
         login();
@@ -73,12 +70,15 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        FIXBuilder msg = fix_msg::login(config->username, config->password);
+        FIXBuilder msg = fix_msg::login(nextSeqNum, config->username, config->password, config->nonce);
+        auto serialized = msg.serialize();
+        STABLEARB_LOG_INFO_PRINT(handler, serialized);
 
         boost::system::error_code error;
-        io::write(socket, io::buffer(msg.serialize()), error);
+        io::write(socket, io::buffer(serialized), error);
 
         STABLEARB_LOG_VERIFY(this->getHandler(), true, "Error while logging in", error.message());
+        ++nextSeqNum;
     }
 };
 

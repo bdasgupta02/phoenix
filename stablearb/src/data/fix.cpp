@@ -2,6 +2,7 @@
 
 namespace stablearb {
 
+// TODO: add checksum verification in the same loop
 FIXReader::FIXReader(std::string_view data)
 {
     std::string_view::size_type pos = 0;

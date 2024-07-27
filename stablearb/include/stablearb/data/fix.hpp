@@ -2,6 +2,8 @@
 
 #include "boost/unordered/unordered_flat_map.hpp"
 
+#include <iostream>
+
 #include <charconv>
 #include <chrono>
 #include <concepts>
@@ -18,12 +20,18 @@ concept numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 
 namespace stablearb {
 
+static constexpr char FIX_MSG_DELIMITER[] = "\x018=";
+static constexpr char FIX_PROTOCOL[] = "FIX.4.4";
+static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4; // 1 for \0; 3 for tag, =, \x01
+
 // Assumes synchronous connectivity and tries to reduce copies
 struct FIXBuilder
 {
-    constexpr FIXBuilder()
-        : buffer(8192u)
-    {}
+    constexpr FIXBuilder(std::size_t seqNum)
+    {
+        buffer.reserve(8192u);
+        appendHeader(seqNum);
+    }
 
     constexpr FIXBuilder(FIXBuilder&&) = default;
     constexpr FIXBuilder& operator=(FIXBuilder&&) = default;
@@ -54,19 +62,41 @@ struct FIXBuilder
 
     inline void append(std::string_view tag, bool value) { append(tag, value ? 'Y' : 'N'); }
 
+    inline void append(std::string_view tag, char value)
+    {
+        append(tag);
+        append('=');
+        append(value);
+        append('\x01');
+    }
+
+    inline void append(std::string_view tag, char const* value) { append(tag, std::string_view(value)); }
+
     inline void append(std::string_view tag, std::string_view value)
     {
         append(tag);
         append('=');
         append(value);
-        append('|');
+        append('\x01');
+    }
+
+    inline void appendHeader(std::size_t seqNum)
+    {
+        append("8", FIX_PROTOCOL);
+        append("35", "A");
+        append("49", "bikram");
+        append("56", "DERIBITSERVER");
+        append("34", 1);
     }
 
     inline std::string_view serialize()
     {
-        std::string_view msg = {buffer.data(), size};
-        std::string checksum = calculateChecksum(msg);
+        std::size_t lengthWithoutProtocol = size - FIX_PROTOCOL_MSG_LENGTH;
+        append("9", lengthWithoutProtocol);
+
+        std::string_view checksum = calculateChecksum();
         append("10", checksum);
+
         return {buffer.data(), size};
     }
 
@@ -83,16 +113,17 @@ private:
         ++size;
     }
 
-    std::string calculateChecksum(std::string_view message)
+    std::string_view calculateChecksum()
     {
-        int checksum = 0;
-        for (char c : message)
-            checksum += static_cast<unsigned char>(c);
+        unsigned int checksum = 0;
+        for (std::size_t i = 0u; i < size; ++i)
+            checksum += static_cast<unsigned char>(buffer[i]);
+
         checksum %= 256;
 
-        char checksumStr[4];
+        static char checksumStr[4];
         std::snprintf(checksumStr, sizeof(checksumStr), "%03d", checksum);
-        return {checksumStr};
+        return {checksumStr, 3};
     }
 
     std::vector<char> buffer;
@@ -139,23 +170,20 @@ private:
 
 namespace fix_msg {
 
-FIXBuilder login(std::string_view username, std::string_view password)
+FIXBuilder login(std::size_t seqNum, std::string_view username, std::string_view password, std::string nonce)
 {
-    FIXBuilder builder;
-    builder.append("8", "FIX.4.4");
-    builder.append("35", "A");
-    builder.append("49", "senderCompID");
-    builder.append("56", "targetCompID");
-    builder.append("34", 1);
-
-    builder.append("553", username);
-    builder.append("554", password);
+    FIXBuilder builder(seqNum);
 
     auto now = std::chrono::system_clock::now();
     auto nowC = std::chrono::system_clock::to_time_t(now);
     char timeStr[20];
     std::strftime(timeStr, sizeof(timeStr), "%Y%m%d-%H:%M:%S", std::gmtime(&nowC));
-    builder.append("52", timeStr); // SendingTime
+
+    builder.append("108", 5);
+    builder.append("96", std::string{timeStr} + "." + nonce);
+    builder.append("553", username);
+    builder.append("554", password);
+    builder.append("9001", true);
 
     return std::move(builder);
 }
