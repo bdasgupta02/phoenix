@@ -59,9 +59,9 @@ consteval std::string_view getFilename(std::string_view path)
     handler->invoke(tag::Logger::Log{}, LogLevel::ERROR, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
 #define STABLEARB_LOG_FATAL(handler, condition, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
+    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
 #define STABLEARB_LOG_FATAL_PRINT(handler, condition, ...) \
-    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
+    handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, true, __VA_ARGS__)
 
 #define STABLEARB_LOG_VERIFY(handler, condition, ...) \
     handler->invoke(tag::Logger::Verify{}, condition, STABLEARB_LOG_DETAIL_CURRENT_FILE, __LINE__, false, __VA_ARGS__)
@@ -133,7 +133,7 @@ struct Logger : NodeBase
         tag::Logger::Verify, bool condition, std::string_view filename, int line, bool print = false, Args&&... args)
     {
         if (!condition)
-            handle(LogLevel::FATAL, filename, line, print, std::forward<Args&&>(args)...);
+            handle(tag::Logger::Log{}, LogLevel::FATAL, filename, line, print, std::forward<Args&&>(args)...);
     }
 
     void handle(tag::Logger::Stop)
@@ -218,7 +218,7 @@ private:
 
         // clang-format off
         loggerCache
-            << std::put_time(std::gmtime(&timeT), "%Y-%m-%d %H:%M:%S")
+            << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%S")
             << " "
             << entry.filename
             << ":" 

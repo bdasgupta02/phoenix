@@ -1,6 +1,6 @@
-file(GLOB SOURCES *.cpp)
-
-add_library(stablearb ${SOURCES})
+add_library(stablearb 
+  data/fix.cpp
+)
 
 target_link_libraries(stablearb PUBLIC
     Boost::program_options

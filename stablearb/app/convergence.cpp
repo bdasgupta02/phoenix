@@ -5,7 +5,7 @@
 #include "stablearb/convergence/quoter.hpp"
 #include "stablearb/convergence/risk.hpp"
 #include "stablearb/data/config.hpp"
-#include "stablearb/data/price.hpp"
+#include "stablearb/data/decimal.hpp"
 #include "stablearb/graph/router.hpp"
 #include "stablearb/tags.hpp"
 
@@ -13,7 +13,7 @@ using namespace stablearb;
 
 struct Traits
 {
-    using PriceType = Price<4u>;
+    using PriceType = Decimal<4u>;
 };
 
 // clang-format off

@@ -1,2 +1,2 @@
 add_executable(stablearb_convergence convergence.cpp)
-target_link_libraries(stablearb_convergence PRIVATE stablearb)
+target_link_libraries(stablearb_convergence PUBLIC stablearb)
