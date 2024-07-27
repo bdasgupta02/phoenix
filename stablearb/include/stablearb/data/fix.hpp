@@ -19,12 +19,12 @@
 // TODO: equivalence between reader and writer, or raw string and writer
 // or tbh just check message type field in reader
 
-namespace {
-template<typename T>
-concept numerical = (std::integral<T> || std::floating_point<T>) && !std::same_as<T, char> && !std::same_as<T, bool>;
-}
-
 namespace stablearb {
+
+namespace concepts {
+template<typename T>
+concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_as<T, char> && !std::same_as<T, bool>;
+}
 
 static constexpr char FIX_FIELD_DELIMITER = '\x01';
 static constexpr char FIX_MSG_DELIMITER[] = "\x018=";
@@ -66,7 +66,7 @@ struct FIXBuilder
         append(tag, value.str());
     }
 
-    inline void append(std::string_view tag, numerical auto value)
+    inline void append(std::string_view tag, concepts::Numerical auto value)
     {
         static char convBuffer[512];
         static char* ptr;
@@ -149,7 +149,7 @@ struct FIXReader
 
     inline std::string_view getString(std::string const& tag) { return fields[tag]; }
 
-    template<numerical T>
+    template<concepts::Numerical T>
     inline T getNumber(std::string const& tag)
     {
         auto val = fields[tag];

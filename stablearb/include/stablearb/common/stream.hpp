@@ -50,7 +50,7 @@ struct Stream : NodeBase
         }
 
         login();
-        listen();
+        start();
     }
 
     void handle(tag::Stream::Stop)
@@ -78,23 +78,23 @@ private:
 
         boost::system::error_code error;
         io::write(socket, io::buffer(msg), error);
-
-        STABLEARB_LOG_VERIFY(this->getHandler(), true, "Error while logging in", error.message());
+        STABLEARB_LOG_VERIFY(this->getHandler(), (!error), "Error while logging in", error.message());
         ++nextSeqNum;
 
         // get response
     }
 
-    inline void listen()
-    {}
+    inline void start()
+    {
+        auto* handler = this->getHandler();
+        [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
+        // start whole pipeline
+        // take last message for MD if multiple
+    }
 
     inline auto recv()
     {
-        auto* handler = this->getHandler();
-
-        [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Receiving upstream data");
         // read one message maybe
-        // take last message for MD if multiple
     }
 };
 
