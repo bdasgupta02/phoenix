@@ -116,7 +116,7 @@ private:
         else
         {
             static_assert(sizeof...(RestNodes) != 0, "No nodes have this handler");
-            return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...))>(
+            return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...))>(
                 tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...));
         }
     }

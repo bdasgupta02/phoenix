@@ -13,8 +13,6 @@ template<typename NodeBase>
 struct Profiler : NodeBase
 {
     using NodeBase::NodeBase;
-
-    using Traits = NodeBase::Traits;
     using Router = NodeBase::Router;
 
     template<typename Handler>

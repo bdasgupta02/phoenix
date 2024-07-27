@@ -34,7 +34,7 @@ struct Stream : NodeBase
         // To call other nodes:
         // 1. and retrieve() for functions that return something
         // 2. use invoke() for void handlers 
-        auto& position = this->getHandler()->retrieve(tag::Quoter::Position{});
+        auto position = this->getHandler()->retrieve(tag::Quoter::Position{});
         this->getHandler()->invoke(tag::Risk::Evaluate{}, position);
     }
 
