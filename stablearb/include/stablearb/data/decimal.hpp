@@ -8,6 +8,18 @@
 
 namespace stablearb {
 
+namespace detail {
+template<std::uint8_t Precision>
+consteval std::uint64_t getMultiplier()
+{
+    std::uint64_t result = 1;
+    for (std::uint8_t i = 0; i < Precision; ++i)
+        result *= 10;
+
+    return result;
+}
+} // namespace detail
+
 template<std::uint8_t Precision>
 class Decimal
 {
@@ -55,14 +67,13 @@ public:
     }
 
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
-
     Decimal operator-(Decimal const& other) const { return {value - other.value}; }
 
     void modify(auto&& func) { value = func(value); }
 
 private:
     std::uint64_t value = 0ULL;
-    static constexpr std::uint64_t multiplier = std::pow(10, Precision);
+    static constexpr std::uint64_t multiplier = detail::getMultiplier<Precision>();
 };
 
 } // namespace stablearb
