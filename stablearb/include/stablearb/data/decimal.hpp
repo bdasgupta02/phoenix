@@ -1,6 +1,5 @@
 #pragma once
 
-#include <charconv>
 #include <cmath>
 #include <concepts>
 #include <cstdint>
@@ -31,31 +30,28 @@ public:
         return static_cast<T>(value) / multiplier;
     }
 
-    std::string_view str() const
+    std::string str() const
     {
-        char buffer[21];
-        char* ptr = buffer;
+        std::uint64_t left = (value / multiplier) * (multiplier * 10);
+        std::uint64_t right = (value % multiplier) + multiplier;
 
-        std::uint64_t const left = value / multiplier;
-        std::uint64_t const right = value % multiplier;
+        std::string result;
 
         if (left == 0)
         {
-            std::uint64_t const combined = right + multiplier + (multiplier * 10);
-            auto const result = std::to_chars(ptr, ptr + sizeof(buffer), combined);
-            std::size_t const length = result.ptr - ptr;
-            *(ptr + (length - Precision - 1)) = '0';
-            *(ptr + (length - Precision)) = '.';
-            return {ptr, length};
+            result = std::to_string(left + right + (multiplier * 10));
+            std::uint64_t dotIdx = result.size() - Precision - 1;
+            result[0] = '0';
+            result[dotIdx] = '.';
         }
         else
         {
-            std::uint64_t const combined = (left * multiplier * 10) + right;
-            auto const result = std::to_chars(ptr, ptr + sizeof(buffer), combined);
-            std::size_t const length = result.ptr - ptr;
-            *(ptr + (length - Precision)) = '.';
-            return {ptr, length};
+            result = std::to_string(left + right);
+            std::uint64_t dotIdx = result.size() - Precision - 1;
+            result[dotIdx] = '.';
         }
+
+        return std::move(result);
     }
 
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
