@@ -58,16 +58,6 @@ struct Stream : NodeBase
 
     void handle(tag::Stream::Stop) { stop(); }
 
-    io::io_context ioContext;
-    io::ip::tcp::socket socket{ioContext};
-    io::streambuf recvBuffer;
-
-    bool isConnected{false};
-    bool isRunning{false};
-    std::size_t nextSeqNum{1};
-
-    FIXMessageBuilder fixBuilder;
-
 private:
     void login()
     {
@@ -126,6 +116,16 @@ private:
         STABLEARB_LOG_VERIFY(this->getHandler(), (!error), "Error while sending message", msg, error.message());
         ++nextSeqNum;
     }
+
+    io::io_context ioContext;
+    io::ip::tcp::socket socket{ioContext};
+    io::streambuf recvBuffer;
+
+    bool isConnected{false};
+    bool isRunning{false};
+    std::size_t nextSeqNum{1};
+
+    FIXMessageBuilder fixBuilder;
 };
 
 } // namespace stablearb

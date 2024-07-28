@@ -33,9 +33,8 @@ public:
 
     std::string_view str() const
     {
-        static char buffer[512];
-        static char* ptr;
-        ptr = buffer;
+        char buffer[21];
+        char* ptr = buffer;
 
         std::uint64_t const left = value / multiplier;
         std::uint64_t const right = value % multiplier;
