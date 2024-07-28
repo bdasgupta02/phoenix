@@ -38,14 +38,24 @@ public:
 
         std::uint64_t const left = value / multiplier;
         std::uint64_t const right = value % multiplier;
-        std::uint64_t const combined = (left * multiplier * 10) + right;
 
-        auto const result = std::to_chars(ptr, ptr + sizeof(buffer), combined);
-        std::size_t const length = result.ptr - ptr;
-        char* const dot = ptr + (length - Precision);
-        *dot = '.';
-
-        return {ptr, length};
+        if (left == 0)
+        {
+            std::uint64_t const combined = right + multiplier + (multiplier * 10);
+            auto const result = std::to_chars(ptr, ptr + sizeof(buffer), combined);
+            std::size_t const length = result.ptr - ptr;
+            *(ptr + (length - Precision - 1)) = '0';
+            *(ptr + (length - Precision)) = '.';
+            return {ptr, length};
+        }
+        else
+        {
+            std::uint64_t const combined = (left * multiplier * 10) + right;
+            auto const result = std::to_chars(ptr, ptr + sizeof(buffer), combined);
+            std::size_t const length = result.ptr - ptr;
+            *(ptr + (length - Precision)) = '.';
+            return {ptr, length};
+        }
     }
 
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
