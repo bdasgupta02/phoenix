@@ -29,10 +29,9 @@ struct Stream : NodeBase
         recvBuffer.prepare(8192u);
     }
 
-    ~Stream()
-    {
-        // mass exit, mass cancel, logout, disconnect on dtor here
-    }
+    ~Stream() { stop(); }
+
+    void handle(tag::Stream::Stop) { stop(); }
 
     void handle(tag::Stream::Start)
     {
@@ -44,7 +43,6 @@ struct Stream : NodeBase
             io::ip::tcp::resolver resolver{ioContext};
             auto endpoints = resolver.resolve(config->host, config->port);
             io::connect(socket, endpoints);
-            isConnected = true;
             STABLEARB_LOG_INFO(handler, "Connected successfully");
         }
         catch (std::exception const& e)
@@ -53,30 +51,16 @@ struct Stream : NodeBase
         }
 
         login();
-        /*start();*/
+        startPipeline();
     }
-
-    void handle(tag::Stream::Stop) { stop(); }
 
 private:
-    void login()
+    inline void startPipeline()
     {
         auto* handler = this->getHandler();
-        auto* config = this->getConfig();
+        STABLEARB_LOG_INFO(handler, "Starting trading pipeline");
 
-        std::string_view msg = fixBuilder.login(nextSeqNum, config->username, config->password, config->nonce);
-        sendMsg(msg);
-
-        auto reader = recvMsg();
-        STABLEARB_LOG_VERIFY(handler, (reader.getString("35") == "A"), "Login unsuccessful");
-        STABLEARB_LOG_INFO(handler, "Login successful");
-    }
-
-    inline void start()
-    {
-        auto* handler = this->getHandler();
         isRunning = true;
-
         while (isRunning)
         {
             [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
@@ -86,25 +70,42 @@ private:
             {}
             catch (std::exception const& e)
             {
-                STABLEARB_LOG_ERROR(handler, "Stream pipeline error", e.what());
+                STABLEARB_LOG_ERROR(handler, "Error in trading pipeline", e.what());
                 stop();
+                return;
             }
         }
     }
 
+    inline void login()
+    {
+        auto* handler = this->getHandler();
+        auto* config = this->getConfig();
+        std::string_view msg = fixBuilder.login(nextSeqNum, config->username, config->password, config->nonce);
+        sendMsg(msg);
+        auto reader = recvMsg();
+        STABLEARB_LOG_VERIFY(handler, (reader.getString("35") == "A"), "Login unsuccessful");
+        STABLEARB_LOG_INFO(handler, "Login successful");
+    }
+
     inline void stop()
     {
-        // same thing as dtor
-        if (!isConnected || !isRunning)
+        if (!isRunning)
             return;
 
+        auto* handler = this->getHandler();
+        STABLEARB_LOG_INFO(handler, "Stopping stream");
         isRunning = false;
-        // logout and dc?
+        sendMsg(fixBuilder.logout(nextSeqNum));
+
+        boost::system::error_code ec;
+        socket.close(ec);
+        if (ec)
+            STABLEARB_LOG_ERROR(handler, "Error closing socket", ec.message());
     }
 
     inline FIXReader recvMsg()
     {
-        // seq num?
         io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
         return {recvBuffer};
     }
@@ -121,7 +122,6 @@ private:
     io::ip::tcp::socket socket{ioContext};
     io::streambuf recvBuffer;
 
-    bool isConnected{false};
     bool isRunning{false};
     std::size_t nextSeqNum{1};
 

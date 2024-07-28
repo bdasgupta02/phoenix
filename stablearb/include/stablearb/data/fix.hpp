@@ -17,9 +17,6 @@
 // Existing C++ implementations of FIX protocol were boring and overly complicated,
 // so this is one that reduces copying and allocations, and assumes single-threaded use
 
-// TODO: equivalence between reader and writer, or raw string and writer
-// or tbh just check message type field in reader
-
 namespace stablearb {
 
 namespace concepts {
@@ -68,7 +65,7 @@ struct FIXBuilder
 
     inline void append(std::string_view tag, concepts::Numerical auto value)
     {
-        static char convBuffer[512];
+        static char convBuffer[64];
         static char* ptr;
         ptr = convBuffer;
 
