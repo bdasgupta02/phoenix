@@ -2,7 +2,8 @@
 
 #include "stablearb/helpers/conversion.hpp"
 
-#include "boost/unordered/unordered_flat_map.hpp"
+#include <boost/asio.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <charconv>
 #include <chrono>
@@ -13,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-// Existing C++ implementations of FIX protocol were boring,
+// Existing C++ implementations of FIX protocol were boring and overly complicated,
 // so this is one that reduces copying and allocations, and assumes single-threaded use
 
 // TODO: equivalence between reader and writer, or raw string and writer
@@ -27,9 +28,8 @@ concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 }
 
 static constexpr char FIX_FIELD_DELIMITER = '\x01';
-static constexpr char FIX_MSG_DELIMITER[] = "\x018=";
 static constexpr char FIX_PROTOCOL[] = "FIX.4.4";
-static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) - 4; // 1 for \0; 3 for tag, =, \x01
+static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) + 3; // 3 for tag 8, =, \x01
 
 // Assumes synchronous connectivity and tries to reduce copies
 struct FIXBuilder
@@ -139,10 +139,38 @@ private:
     std::size_t size = 0u;
 };
 
-// Assumes synchronous connectivity and tries to reduce copies
+struct FIXMessageBuilder
+{
+    inline std::string_view
+        login(std::size_t seqNum, std::string_view username, std::string_view password, std::string_view nonce)
+    {
+        auto epoch = std::chrono::steady_clock::now().time_since_epoch();
+        std::uint64_t timeEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
+        std::string_view timeStr = uint64ToString(timeEpoch);
+
+        builder.reset(seqNum, 'A');
+        builder.appendAll("96", '=', timeStr, '.', nonce, FIX_FIELD_DELIMITER);
+        builder.append("108", 5);
+        builder.append("553", username);
+        builder.append("554", password);
+        builder.append("9001", true);
+        return builder.serialize();
+    }
+
+    inline std::string_view logout(std::size_t seqNum)
+    {
+        builder.reset(seqNum, '5');
+        return builder.serialize();
+    }
+
+private:
+    FIXBuilder builder;
+};
+
 struct FIXReader
 {
     FIXReader(std::string_view data);
+    FIXReader(boost::asio::streambuf& buffer);
 
     FIXReader(FIXReader&&) = default;
     FIXReader& operator=(FIXReader&&) = default;
@@ -172,37 +200,7 @@ struct FIXReader
     }
 
 private:
-    boost::unordered_flat_map<std::string, std::string_view> fields;
+    boost::unordered_flat_map<std::string, std::string> fields;
 };
-
-namespace fix_msg {
-
-inline std::string_view
-    login(std::size_t seqNum, std::string_view username, std::string_view password, std::string_view nonce)
-{
-    static FIXBuilder builder;
-    builder.reset(seqNum, 'A');
-
-    auto epoch = std::chrono::steady_clock::now().time_since_epoch();
-    std::uint64_t timeEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count();
-    std::string_view timeStr = uint64ToString(timeEpoch);
-
-    builder.appendAll("96", '=', timeStr, '.', nonce, FIX_FIELD_DELIMITER);
-    builder.append("108", 5);
-    builder.append("553", username);
-    builder.append("554", password);
-    builder.append("9001", true);
-
-    return builder.serialize();
-}
-
-inline std::string_view logout(std::size_t seqNum)
-{
-    static FIXBuilder builder;
-    builder.reset(seqNum, '5');
-    return builder.serialize();
-}
-
-} // namespace fix_msg
 
 } // namespace stablearb

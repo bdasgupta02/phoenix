@@ -5,6 +5,7 @@
 #include "stablearb/tags.hpp"
 
 #include <boost/asio.hpp>
+#include <boost/regex.hpp>
 
 #include <cstdint>
 #include <exception>
@@ -24,9 +25,9 @@ struct Stream : NodeBase
 
     Stream(auto const& config, auto& handler)
         : NodeBase{config, handler}
-        , recvBuffer(4096u)
-        , sendBuffer(4096u)
-    {}
+    {
+        recvBuffer.prepare(8192u);
+    }
 
     ~Stream()
     {
@@ -43,6 +44,7 @@ struct Stream : NodeBase
             io::ip::tcp::resolver resolver{ioContext};
             auto endpoints = resolver.resolve(config->host, config->port);
             io::connect(socket, endpoints);
+            isConnected = true;
             STABLEARB_LOG_INFO(handler, "Connected successfully");
         }
         catch (std::exception const& e)
@@ -51,49 +53,71 @@ struct Stream : NodeBase
         }
 
         login();
-        start();
+        /*start();*/
     }
 
-    void handle(tag::Stream::Stop)
-    {
-        // same thing as dtor
-        if (!isConnected)
-            return;
-    }
+    void handle(tag::Stream::Stop) { stop(); }
 
     io::io_context ioContext;
     io::ip::tcp::socket socket{ioContext};
+    io::streambuf recvBuffer;
 
     bool isConnected{false};
+    bool isRunning{false};
     std::size_t nextSeqNum{1};
-    std::vector<std::uint8_t> recvBuffer;
-    std::vector<std::uint8_t> sendBuffer;
+
+    FIXMessageBuilder fixBuilder;
 
 private:
     void login()
     {
+        auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        std::string_view msg = fix_msg::login(nextSeqNum, config->username, config->password, config->nonce);
+        std::string_view msg = fixBuilder.login(nextSeqNum, config->username, config->password, config->nonce);
         sendMsg(msg);
 
-        // get response
+        auto reader = recvMsg();
+        STABLEARB_LOG_VERIFY(handler, (reader.getString("35") == "A"), "Login unsuccessful");
+        STABLEARB_LOG_INFO(handler, "Login successful");
     }
 
     inline void start()
     {
         auto* handler = this->getHandler();
+        isRunning = true;
 
-        [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
-        // start whole pipeline
-        // take last message for MD if multiple
+        while (isRunning)
+        {
+            [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
+            // start whole pipeline
+            // take last message for MD if multiple
+            try
+            {}
+            catch (std::exception const& e)
+            {
+                STABLEARB_LOG_ERROR(handler, "Stream pipeline error", e.what());
+                stop();
+            }
+        }
     }
 
-    /*inline FIXReader recvMsg()*/
-    /*{*/
-    /*    // read one message maybe*/
-    /*    return {};*/
-    /*}*/
+    inline void stop()
+    {
+        // same thing as dtor
+        if (!isConnected || !isRunning)
+            return;
+
+        isRunning = false;
+        // logout and dc?
+    }
+
+    inline FIXReader recvMsg()
+    {
+        // seq num?
+        io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
+        return {recvBuffer};
+    }
 
     inline void sendMsg(std::string_view msg)
     {

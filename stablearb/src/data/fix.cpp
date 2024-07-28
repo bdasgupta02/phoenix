@@ -29,4 +29,12 @@ FIXReader::FIXReader(std::string_view data)
     }
 }
 
+FIXReader::FIXReader(boost::asio::streambuf& buffer)
+{
+    char const* data = boost::asio::buffer_cast<char const*>(buffer.data());
+    std::size_t size = buffer.size();
+    *this = FIXReader{std::string_view{data, size}};
+    buffer.consume(size);
+}
+
 } // namespace stablearb

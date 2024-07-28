@@ -9,6 +9,7 @@ target_link_libraries(stablearb PUBLIC
     Boost::describe
     Boost::asio
     Boost::log
+    Boost::regex
 )
 
 target_include_directories(stablearb PUBLIC ${PROJECT_SOURCE_DIR}/include)

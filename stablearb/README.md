@@ -39,7 +39,7 @@ struct Stream : NodeBase
     }
 
     // Handlers can also return anything if needed 
-    Status& handle(tag::Stream::Status, ...) 
+    Status handle(tag::Stream::Status, ...) 
     {
         return status;
     }
