@@ -29,7 +29,7 @@ concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 
 static constexpr char FIX_FIELD_DELIMITER = '\x01';
 static constexpr char FIX_PROTOCOL[] = "FIX.4.4";
-static constexpr std::size_t FIX_PROTOCOL_MSG_LENGTH = sizeof(FIX_PROTOCOL) + 3; // 3 for tag 8, =, \x01
+static constexpr std::size_t FIX_PROTOCOL_FIELD_LENGTH = sizeof(FIX_PROTOCOL) + 2; // (3 for 8, =, \x01) - (1 for \0)
 
 // Assumes synchronous connectivity and tries to reduce copies
 struct FIXBuilder
@@ -100,7 +100,7 @@ struct FIXBuilder
 
     inline std::string_view serialize()
     {
-        std::size_t lengthWithoutProtocol = size - FIX_PROTOCOL_MSG_LENGTH;
+        std::size_t lengthWithoutProtocol = size - FIX_PROTOCOL_FIELD_LENGTH;
         append("9", lengthWithoutProtocol);
 
         std::string_view checksum = calculateChecksum();
