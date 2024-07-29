@@ -1,4 +1,4 @@
-start.sh
+*.sh
 
 # CMake
 CMakeLists.txt.user

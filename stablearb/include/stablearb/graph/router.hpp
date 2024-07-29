@@ -58,7 +58,7 @@ Node& getNode(Router<Traits, NodeList<Nodes...>>& graph)
 
 // Static dependency injection wiring router
 // Nodes should be descending order in priority
-// Checks if the called functions are implemented
+// Statically checks if the called functions are implemented
 // Can be simplified a bit more imo
 // Note: retrieval functions can return lval or ptr, and are zero-copy
 template<typename Traits, template<typename> class... Nodes>
@@ -74,6 +74,7 @@ struct Router<Traits, NodeList<Nodes...>>
 
 private:
     template<typename Tag, typename... Args>
+    [[gnu::always_inline, gnu::hot]]
     inline void invokeImpl(Tag tag, Args&&... args)
     {
         static_assert(
@@ -84,7 +85,8 @@ private:
     }
 
     template<typename Tag, typename... Args>
-    [[nodiscard]] inline auto retrieveImpl(Tag tag, Args&&... args)
+    [[nodiscard, gnu::always_inline, gnu::hot]]
+    inline auto retrieveImpl(Tag tag, Args&&... args)
     {
         static_assert(
             (concepts::HasReturnHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> ^ ...) == 1,
@@ -95,6 +97,7 @@ private:
     }
 
     template<template<typename> class Node, typename Tag, typename... Args>
+    [[gnu::always_inline, gnu::hot]]
     inline void tryInvoke(Tag tag, Args&&... args)
     {
         if constexpr (concepts::HasVoidHandler<Node<NodeBase<Traits, Router>>, Tag, Router, Args...>)
@@ -105,7 +108,8 @@ private:
     }
 
     template<template<typename> class FirstNode, template<typename> class... RestNodes, typename Tag, typename... Args>
-    [[nodiscard]] inline auto tryRetrieve(Tag tag, Args&&... args)
+    [[nodiscard, gnu::always_inline, gnu::hot]]
+    inline auto tryRetrieve(Tag tag, Args&&... args)
     {
         if constexpr (concepts::HasReturnHandler<FirstNode<NodeBase<Traits, Router>>, Tag, Router, Args...>)
         {

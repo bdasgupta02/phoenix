@@ -54,12 +54,7 @@ consteval std::string_view getFilename(std::string_view path)
 template<typename NodeBase>
 struct Logger : NodeBase
 {
-    template<typename Traits, typename Router>
-    Logger(Config<Traits> const& config, RouterHandler<Router>& handler)
-        : NodeBase{config, handler}
-        , logLevel{config.logLevel}
-        , appName{config.appName}
-    {}
+    using NodeBase::NodeBase;
 
     Logger(Logger&& other) { assert(!other.running.test() && "Cannot move running logger"); }
 
@@ -79,7 +74,7 @@ struct Logger : NodeBase
         auto inTimeT = std::chrono::system_clock::to_time_t(now);
 
         std::stringstream ss;
-        ss << appName << "-";
+        ss << this->getConfig()->instrument << "-";
         ss << std::put_time(std::gmtime(&inTimeT), "%Y%m%d-%H%M%S");
         ss << ".log";
 
@@ -89,29 +84,26 @@ struct Logger : NodeBase
     }
 
     template<typename... Args>
-    inline void handle(
-        tag::Logger::Log, LogLevel level, std::string_view filename, int line, Args&&... args)
+    inline void handle(tag::Logger::Log, LogLevel level, std::string_view filename, int line, Args&&... args)
     {
-        if (level < logLevel)
+        if (level < this->getConfig()->logLevel)
             return;
 
         handlerCache.str("");
         handlerCache.clear();
         ((handlerCache << " " << args), ...);
 
-        Entry entry{
-            .line = line,
-            .level = level,
-            .message = handlerCache.str(),
-            .filename = std::string{filename}};
+        Entry entry{.line = line, .level = level, .message = handlerCache.str(), .filename = std::string{filename}};
 
         while (!entries.push(entry))
             _mm_pause();
+
+        if (level == LogLevel::FATAL)
+            this->getHandler()->invoke(tag::Risk::Abort{});
     }
 
     template<typename... Args>
-    inline void handle(
-        tag::Logger::Verify, bool condition, std::string_view filename, int line, Args&&... args)
+    inline void handle(tag::Logger::Verify, bool condition, std::string_view filename, int line, Args&&... args)
     {
         if (!condition)
             handle(tag::Logger::Log{}, LogLevel::FATAL, filename, line, std::forward<Args&&>(args)...);
@@ -158,17 +150,20 @@ private:
 
             if (entry.level == LogLevel::FATAL)
             {
+                running.clear();
                 logFile->flush();
                 logFile->close();
-                running.clear();
-                this->getHandler()->invoke(tag::Risk::Abort{});
+                return false;
             }
+
+            return true;
         };
 
         while (running.test())
         {
             while (entries.pop(entry))
-                processEntry();
+                if (!processEntry())
+                    return;
 
             auto now = std::chrono::system_clock::now();
             if (now - lastFlush >= flushInterval)
@@ -181,7 +176,8 @@ private:
         }
 
         while (entries.pop(entry))
-            processEntry();
+            if (!processEntry())
+                return;
 
         logFile->flush();
         logFile->close();
@@ -217,8 +213,6 @@ private:
     static std::size_t LOGGERS;
     static constexpr std::size_t QUEUE_SIZE = 8192u;
 
-    LogLevel logLevel;
-    std::string appName;
     std::string logPath;
     std::optional<std::thread> logger;
     std::optional<std::ofstream> logFile;

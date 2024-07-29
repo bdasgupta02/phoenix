@@ -26,7 +26,7 @@ struct Config
     {
         try
         {
-            po::options_description desc(appName + " Arbitrage System Config");
+            po::options_description desc("Config");
 
             double lotSizeDouble{0.00};
 
@@ -34,11 +34,9 @@ struct Config
             desc.add_options()
                 ("help,h", "see all commands")
                 ("auth-username", po::value<std::string>(&username)->required(), "Deribit username")
-                ("auth-password", po::value<std::string>(&password)->required(), "Deribit password")
-                ("auth-nonce", po::value<std::string>(&nonce)->required(), "Deribit Base64 raw nonce data")
+                ("auth-secret", po::value<std::string>(&secret)->required(), "Deribit client secret")
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
-                ("appName", po::value<std::string>(&appName)->required(), "Application name")
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
                 ("lotSize", po::value<double>(&lotSizeDouble), "Quote lot size mininimum increment")
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
@@ -79,13 +77,11 @@ struct Config
 
     // deribit connectivity
     std::string username;
-    std::string password;
-    std::string nonce;
+    std::string secret;
     std::string host = "www.deribit.com"; // test.deribit.com:9881 for test net
     std::string port = "9881";
 
     // app
-    std::string appName;
     std::string instrument;
     std::string kind;
     PriceType lotSize;

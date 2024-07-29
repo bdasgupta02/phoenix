@@ -16,8 +16,17 @@ struct NodeBase
         , handler{&handler}
     {}
 
-    RouterHandler<Router>* getHandler() { return handler; }
-    Config<Traits> const* getConfig() { return config; }
+    [[gnu::always_inline, gnu::hot]]
+    inline RouterHandler<Router>* getHandler()
+    {
+        return handler;
+    }
+
+    [[gnu::always_inline, gnu::hot]]
+    inline Config<Traits> const* getConfig()
+    {
+        return config;
+    }
 
     Config<Traits> const* config{nullptr};
     RouterHandler<Router>* handler{nullptr};

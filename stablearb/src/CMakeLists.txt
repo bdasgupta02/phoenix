@@ -10,6 +10,7 @@ target_link_libraries(stablearb PUBLIC
     Boost::asio
     Boost::log
     Boost::regex
+    OpenSSL::Crypto
 )
 
 target_include_directories(stablearb PUBLIC ${PROJECT_SOURCE_DIR}/include)
