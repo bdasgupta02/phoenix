@@ -10,10 +10,7 @@ struct SingleQuote
 
     PriceType price;
     VolumeType volume;
-    int side;
+    int side; // bid: 1, ask: 2
 };
-
-struct QuoteState
-{};
 
 } // namespace stablearb

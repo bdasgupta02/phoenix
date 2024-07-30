@@ -48,6 +48,12 @@ struct Risk
 {
     struct Abort
     {};
+    
+    struct Check
+    {};
+    
+    struct UpdatePosition
+    {};
 };
 
 } // namespace stablearb::tag

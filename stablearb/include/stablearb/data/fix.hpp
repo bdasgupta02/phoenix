@@ -59,6 +59,21 @@ struct FIXBuilder
         append("34", seqNum);
     }
 
+    inline void reset(std::size_t seqNum, std::string_view msgType)
+    {
+        buffer.clear();
+        staging.clear();
+        size = 0u;
+
+        staging.push_back({"8", FIX_PROTOCOL});
+        staging.push_back({"9", ""});
+
+        append("35", msgType);
+        append("49", "algo");
+        append("56", "DERIBITSERVER");
+        append("34", seqNum);
+    }
+
     inline void append(std::string_view tag, std::string_view value)
     {
         size += tag.size() + value.size() + 2u;
@@ -207,13 +222,23 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
-    inline std::string_view newOrderSingle(std::size_t seqNum, auto& quote)
+    inline std::string_view newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote)
     {
         builder.reset(seqNum, 'D');
         builder.append("11", seqNum);
         builder.append("54", quote.side);
         builder.append("38", quote.volume.str());
         builder.append("44", quote.price.str());
+        builder.append("55", symbol);
+        return builder.serialize();
+    }
+
+    inline std::string_view requestForPositions(std::size_t seqNum)
+    {
+        builder.reset(seqNum, "AN");
+        builder.append("710", seqNum);
+        builder.append("724", 0);
+        builder.append("263", 1);
         return builder.serialize();
     }
 
@@ -310,7 +335,16 @@ struct FIXReader
     FIXReader(FIXReader&) = delete;
     FIXReader& operator=(FIXReader&) = delete;
 
-    inline std::string_view getString(std::string const& tag, std::size_t index = 0u)
+    inline std::string getString(std::string const& tag, std::size_t index = 0u)
+    {
+        auto it = fields.find(tag);
+        if (it != fields.end())
+            if (it->second.size() > index)
+                return it->second[index];
+        return UNKNOWN;
+    }
+
+    inline std::string_view getStringView(std::string const& tag, std::size_t index = 0u)
     {
         auto it = fields.find(tag);
         if (it != fields.end())
@@ -328,8 +362,8 @@ struct FIXReader
         return result;
     }
 
-    template<typename PriceType>
-    inline PriceType getPrice(std::string const& tag, std::size_t index = 0u)
+    template<typename DecimalType>
+    inline DecimalType getDecimal(std::string const& tag, std::size_t index = 0u)
     {
         double value = getNumber<double>(tag, index);
         return {value};
@@ -337,16 +371,26 @@ struct FIXReader
 
     inline bool getBool(std::string const& tag, std::size_t index = 0u)
     {
-        auto val = getString(tag, index);
+        auto val = getStringView(tag, index);
         return val == "Y" || val == "y";
     }
 
-    inline bool isMessageType(std::string_view msgType) { return getString("35") == msgType; }
+    inline bool isMessageType(std::string_view msgType) { return this->msgType == msgType; }
+
+    inline bool contains(std::string const& tag, std::size_t index = 0u)
+    {
+        auto it = fields.find(tag);
+        if (it != fields.end())
+            if (it->second.size() > index)
+                return true;
+        return false;
+    }
 
     static constexpr std::string UNKNOWN = "UNKNOWN";
 
 private:
     boost::unordered_flat_map<std::string, std::vector<std::string>> fields;
+    std::string msgType;
 };
 
 } // namespace stablearb

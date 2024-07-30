@@ -196,13 +196,13 @@ private:
         // clang-format off
         loggerCache
             << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%S")
-            << " "
+            << " [" 
+            << logLevelString(entry.level)
+            << "] "
             << entry.filename
             << ":" 
             << entry.line
-            << " [" 
-            << logLevelString(entry.level)
-            << "]"
+            << " -"
             << entry.message
         ;
         // clang-format on

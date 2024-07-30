@@ -22,6 +22,8 @@ FIXReader::FIXReader(std::string_view data)
         fields[tag].emplace_back(std::move(value));
         pos = valueEnd + 1;
     }
+
+    msgType = getStringView("35");
 }
 
 } // namespace stablearb

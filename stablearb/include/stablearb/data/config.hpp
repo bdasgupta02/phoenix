@@ -43,8 +43,8 @@ struct Config
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
-                ("exit-ticks", po::value<std::uint32_t>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
-                ("inventory-limit", po::value<std::uint32_t>(&inventoryLimit)->default_value(inventoryLimit), "One sided inventory position limit")
+                ("exit-ticks", po::value<std::uint64_t>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
+                ("position-limit", po::value<double>(&positionBoundary)->default_value(positionBoundary), "One sided quote position limit")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
             ;
@@ -86,10 +86,10 @@ struct Config
     std::string instrument;
     std::string kind;
     VolumeType lotSize;
+    double positionBoundary = 20.0;
     bool profiled = false;
     double fee = 0.00;
-    std::uint32_t exitTicks = 1;
-    std::uint32_t inventoryLimit = 50;
+    std::uint64_t exitTicks = 1;
     LogLevel logLevel = LogLevel::INFO;
     bool printLogs = false;
 };

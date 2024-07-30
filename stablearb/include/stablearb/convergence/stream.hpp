@@ -75,7 +75,7 @@ struct Stream : NodeBase
 
     inline void handle(tag::Stream::SendQuote, SingleQuote<Traits>& quote)
     {
-        auto msg = fixBuilder.newOrderSingle(nextSeqNum, quote);
+        auto msg = fixBuilder.newOrderSingle(nextSeqNum, this->getConfig()->instrument, quote);
         sendMsg(msg);
     }
 
@@ -88,8 +88,8 @@ private:
         STABLEARB_LOG_INFO(handler, "Starting trading pipeline");
 
         // init position snapshot here after incremental request
-        /*auto posRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, config->instrument);*/
-        /*sendMsg(posRequest);*/
+        auto posRequest = fixBuilder.requestForPositions(nextSeqNum);
+        sendMsg(posRequest);
 
         while (isRunning)
         {
@@ -109,7 +109,7 @@ private:
                 // test request
                 if (reader.isMessageType("1"))
                 {
-                    auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getString("112"));
+                    auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getStringView("112"));
                     sendMsg(msg);
                     STABLEARB_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
                     continue;
@@ -136,7 +136,12 @@ private:
                     continue;
                 }
 
-                // subscribe to position incremental too, and if one comes in, set take profit automatically
+                // position update
+                if (reader.isMessageType("AP"))
+                {
+                    handler->invoke(tag::Risk::UpdatePosition{}, std::move(reader));
+                    continue;
+                }
             }
             catch (std::exception const& e)
             {
