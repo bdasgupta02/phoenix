@@ -73,7 +73,7 @@ struct Risk : NodeBase
                         shortPos += reader.getNumber<double>("705", i);
                 }
 
-                STABLEARB_LOG_WARN(handler, "Received position update. Current position:", longPos, shortPos);
+                STABLEARB_LOG_INFO(handler, "Received position update. Current position:", longPos, shortPos);
                 return;
             }
         }
