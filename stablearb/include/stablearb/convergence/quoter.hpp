@@ -118,10 +118,14 @@ struct Quoter : NodeBase
         {
             auto price = report.getStringView("44");
             auto remaining = report.getDecimal<VolumeType>("151");
+            auto side = report.getNumber<unsigned int>("54");
 
             STABLEARB_LOG_INFO(handler, "New order:", orderId, "with", remaining.template as<double>(), '@', price);
 
             orders[orderId] = remaining;
+
+            if (clOrderId.size() > 0 && clOrderId[0] != 't')
+                handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
         }
 
         // partial/total fill
@@ -200,13 +204,11 @@ private:
         handler->invoke(tag::Stream::SendQuote{}, quote);
         STABLEARB_LOG_INFO(
             handler,
-            "Quoting",
+            "Quoted",
             quote.side == 1 ? "bid" : "ask",
             quote.volume.template as<double>(),
             '@',
             quote.price.template as<double>());
-
-        handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), quote.side);
     }
 
     PriceType lastQuote;

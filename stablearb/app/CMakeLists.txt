@@ -1,2 +1,5 @@
 add_executable(stablearb_conv_usd convergence/usd.cpp)
 target_link_libraries(stablearb_conv_usd PUBLIC stablearb)
+
+add_executable(stablearb_conv_eth convergence/eth.cpp)
+target_link_libraries(stablearb_conv_eth PUBLIC stablearb)
