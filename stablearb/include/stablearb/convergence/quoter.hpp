@@ -101,7 +101,9 @@ struct Quoter : NodeBase
             if (executed > 0)
             {
                 auto reversedSide = side == 1 ? 2 : 1;
-                auto reversedPrice = reversedSide == 1 ? price + tickSize : price - tickSize;
+                auto reversedPrice = side == 1 ? price + tickSize : price - tickSize;
+                SingleQuote<Traits> quote{.price = reversedPrice, .volume = executed, .side = reversedSide};
+                STABLEARB_LOG_INFO(handler, "Quoted take-profit order at", reversedPrice.template as<double>());
             }
 
             orders[orderId] = remaining;
