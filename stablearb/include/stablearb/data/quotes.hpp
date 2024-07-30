@@ -11,6 +11,8 @@ struct SingleQuote
     PriceType price;
     VolumeType volume;
     int side; // bid: 1, ask: 2
+
+    bool takeProfit = false;
 };
 
 } // namespace stablearb

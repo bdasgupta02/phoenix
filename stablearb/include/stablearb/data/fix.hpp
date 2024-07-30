@@ -222,10 +222,19 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
-    inline std::string_view newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote)
+    inline std::string_view
+        newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote, bool takeProfit = false)
     {
         builder.reset(seqNum, 'D');
-        builder.append("11", seqNum);
+
+        if (takeProfit)
+        {
+            std::string clOrderId = "t" + std::to_string(seqNum);
+            builder.append("11", clOrderId);
+        }
+        else
+            builder.append("11", seqNum);
+
         builder.append("54", quote.side);
         builder.append("38", quote.volume.str());
         builder.append("44", quote.price.str());

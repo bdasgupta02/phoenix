@@ -115,6 +115,7 @@ struct Quoter : NodeBase
         auto* handler = this->getHandler();
         auto status = report.getNumber<unsigned int>("39");
         auto orderId = report.getString("37");
+        auto clOrderId = report.getString("41");
 
         // new order
         if (status == 0)
@@ -122,9 +123,9 @@ struct Quoter : NodeBase
             auto price = report.getStringView("44");
             auto remaining = report.getDecimal<VolumeType>("151");
 
+            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with", remaining.template as<double>(), '@', price);
+
             orders[orderId] = remaining;
-            STABLEARB_LOG_INFO(
-                handler, "New order:", orderId, "with remaining", remaining.template as<double>(), '@', price);
         }
 
         // partial/total fill
@@ -142,12 +143,11 @@ struct Quoter : NodeBase
 
             // take-profit order
             auto executed = lastRemaining - remaining;
-            handler->invoke(tag::Risk::UpdatePosition{}, -(executed.template as<double>()), side);
 
-            auto it = orders.find(orderId);
-
-            // if this is not a take-profit order being filled
-            if (executed > 0 && it != orders.end())
+            // if this is a take profit order, rebalance position
+            if (clOrderId.size() > 0 && clOrderId[0] == 't')
+                handler->invoke(tag::Risk::UpdatePosition{}, -(executed.template as<double>()), side == 1u ? 2u : 1u);
+            else if (executed > 0)
             {
                 auto reversedSide = side == 1 ? 2 : 1;
                 auto reversedPrice = side == 1 ? price + tickSize : price - tickSize;
@@ -161,9 +161,10 @@ struct Quoter : NodeBase
                     quote.price.template as<double>());
             }
 
-            it->second = remaining;
             if (remaining.getValue() == 0)
                 orders.erase(orderId);
+            else
+                orders[orderId] = remaining;
 
             STABLEARB_LOG_INFO(
                 handler,
