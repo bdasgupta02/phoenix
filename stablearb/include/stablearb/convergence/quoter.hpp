@@ -23,38 +23,39 @@ struct Quoter : NodeBase
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
+        std::int64_t bidIdx = -1u;
+        std::int64_t askIdx = -1u;
+
+        auto const numUpdates = topLevel.getFieldSize("269");
+        for (auto i = 0; i < numUpdates; ++i)
+        {
+            auto typeField = topLevel.getNumber<unsigned int>("269", i);
+
+            if (typeField == 0)
+                bidIdx = i;
+
+            if (typeField == 1)
+                askIdx = i;
+        }
+
         PriceType lastBid = bestBid;
         PriceType lastAsk = bestAsk;
         VolumeType lastBidQty = bestBidQty;
         VolumeType lastAskQty = bestAskQty;
 
-        if (topLevel.getNumber<unsigned int>("269", 0) == 0)
+        if (bidIdx > -1)
         {
-            bestBid = topLevel.getDecimal<PriceType>("270", 0);
-            bestAsk = topLevel.getDecimal<PriceType>("270", 1);
-            bestBidQty = topLevel.getDecimal<VolumeType>("271", 0);
-            bestAskQty = topLevel.getDecimal<VolumeType>("271", 1);
-            STABLEARB_LOG_VERIFY(
-                handler,
-                (!bestBid.error && !bestAsk.error && !bestBidQty.error && !bestAskQty.error),
-                "Price parse error");
+            bestBid = topLevel.getDecimal<PriceType>("270", bidIdx);
+            bestBidQty = topLevel.getDecimal<VolumeType>("271", bidIdx);
         }
-        else if (topLevel.getNumber<unsigned int>("269", 1) == 0)
+
+        if (askIdx > -1)
         {
-            bestBid = topLevel.getDecimal<PriceType>("270", 1);
-            bestAsk = topLevel.getDecimal<PriceType>("270", 0);
-            bestBidQty = topLevel.getDecimal<VolumeType>("271", 1);
-            bestAskQty = topLevel.getDecimal<VolumeType>("271", 0);
-            STABLEARB_LOG_VERIFY(
-                handler,
-                (!bestBid.error && !bestAsk.error && !bestBidQty.error && !bestAskQty.error),
-                "Price parse error");
+            bestAsk = topLevel.getDecimal<PriceType>("270", askIdx);
+            bestAskQty = topLevel.getDecimal<VolumeType>("271", askIdx);
         }
-        else
-        {
-            STABLEARB_LOG_ERROR(handler, "Invalid top level market data: cannot find bid");
-            return;
-        }
+
+        updateIndex(topLevel);
 
         auto tickSize = config->tickSize;
         auto lotSize = config->lotSize;
@@ -211,9 +212,20 @@ private:
             quote.price.template as<double>());
     }
 
+    void updateIndex(FIXReader& topLevel)
+    {
+        PriceType newIndex = topLevel.getDecimal<PriceType>("100090");
+        if (index != newIndex && newIndex.getValue() != 0u)
+        {
+            index = newIndex;
+            STABLEARB_LOG_INFO(this->getHandler(), "Index price changed to", index.template as<double>());
+        }
+    }
+
     PriceType lastQuote;
     PriceType bestBid;
     PriceType bestAsk;
+    PriceType index;
     VolumeType bestBidQty;
     VolumeType bestAskQty;
 

@@ -395,6 +395,8 @@ struct FIXReader
         return false;
     }
 
+    inline std::size_t getFieldSize(std::string const& tag) { return fields[tag].size(); }
+
     static constexpr std::string UNKNOWN = "UNKNOWN";
 
 private:
