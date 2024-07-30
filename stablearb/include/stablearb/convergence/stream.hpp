@@ -7,9 +7,12 @@
 #include <boost/asio.hpp>
 #include <boost/regex.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <exception>
 #include <vector>
+
+#include <immintrin.h>
 
 namespace {
 namespace io = ::boost::asio;
@@ -72,16 +75,44 @@ private:
     inline void startPipeline()
     {
         auto* handler = this->getHandler();
+        auto* config = this->getConfig();
+
         STABLEARB_LOG_INFO(handler, "Starting trading pipeline");
 
         while (isRunning)
         {
-            [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
             try
-            {}
+            {
+                auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, config->instrument);
+                sendMsg(mdRequest);
+
+                auto reader = recvMsg();
+
+                if (reader.isMessageType("1"))
+                {
+                    auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getString("112"));
+                    sendMsg(msg);
+                    STABLEARB_LOG_INFO(handler, "Received TestRequest");
+                    continue;
+                }
+
+                if (reader.isMessageType("0"))
+                {
+                    STABLEARB_LOG_INFO(handler, "Received Heartbeat");
+                    continue;
+                }
+
+                if (reader.isMessageType("W"))
+                {
+                    [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
+                    
+                    continue;
+                }
+            }
             catch (std::exception const& e)
             {
                 STABLEARB_LOG_FATAL(handler, "Error in trading pipeline", e.what());
+                handle(tag::Stream::Stop{});
                 break;
             }
         }
@@ -92,33 +123,44 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        std::string_view msg = fixBuilder.login(nextSeqNum, config->username, config->secret);
+        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret);
         sendMsg(msg);
         auto reader = recvMsg();
 
-        STABLEARB_LOG_VERIFY(handler, (reader.getString("35") == "A"), "Login unsuccessful");
+        STABLEARB_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful");
         STABLEARB_LOG_INFO(handler, "Login successful");
     }
 
     inline FIXReader recvMsg()
     {
         io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
-        char const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
-        std::size_t size = recvBuffer.size();
+        auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
+        auto const size = recvBuffer.size();
         std::string_view str{data, size};
+        STABLEARB_LOG_INFO(this->getHandler(), "TEST MESSAGE RECEIVED", str);
 
         FIXReader reader{str};
-        STABLEARB_LOG_VERIFY(this->getHandler(), (reader.getString("35") != "3"), "Reject message received", str);
+        STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);
         recvBuffer.consume(size);
         return std::move(reader);
     }
 
     inline void sendMsg(std::string_view msg)
     {
+        spinThrottle();
         boost::system::error_code error;
         io::write(socket, io::buffer(msg), error);
         STABLEARB_LOG_VERIFY(this->getHandler(), (!error), "Error while sending message", msg, error.message());
         ++nextSeqNum;
+    }
+
+    inline void spinThrottle()
+    {
+        auto nextAllowed = lastSent + interval;
+        while (std::chrono::steady_clock::now() <= nextAllowed)
+            _mm_pause();
+
+        lastSent = std::chrono::steady_clock::now();
     }
 
     io::io_context ioContext;
@@ -129,6 +171,9 @@ private:
     std::size_t nextSeqNum = 1u;
 
     FIXMessageBuilder fixBuilder;
+
+    std::chrono::steady_clock::time_point lastSent = std::chrono::steady_clock::now();
+    std::chrono::milliseconds const interval{200};
 };
 
 } // namespace stablearb

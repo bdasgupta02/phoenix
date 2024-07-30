@@ -1,9 +1,8 @@
 #include "stablearb/common/logger.hpp"
 #include "stablearb/common/profiler.hpp"
-#include "stablearb/common/sender.hpp"
-#include "stablearb/common/stream.hpp"
 #include "stablearb/convergence/quoter.hpp"
 #include "stablearb/convergence/risk.hpp"
+#include "stablearb/convergence/stream.hpp"
 #include "stablearb/data/config.hpp"
 #include "stablearb/data/decimal.hpp"
 #include "stablearb/graph/router.hpp"
@@ -23,7 +22,6 @@ using Graph = Router<
         Risk,
         Stream,
         Quoter,
-        Sender,
         Profiler,
         Logger
     >

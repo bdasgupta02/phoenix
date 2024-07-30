@@ -31,23 +31,34 @@ struct Profiler : NodeBase
             : controlBlock{{.handler = handler, .name = name, .start = std::chrono::high_resolution_clock::now()}}
         {}
 
-        Timer(Timer&&) = default;
-        Timer& operator=(Timer&&) = default;
+        Timer(Timer&& other)
+            : controlBlock(std::move(other.controlBlock))
+        {
+            other.moved = true;
+        }
+
+        Timer& operator=(Timer&& other)
+        {
+            this->controlBlock = std::move(other.controlBlock);
+            other.moved = true;
+        }
 
         Timer(Timer const&) = delete;
         Timer& operator=(Timer const&) = delete;
 
         ~Timer()
         {
-            if (controlBlock) [[unlikely]]
+            if (controlBlock && !moved) [[unlikely]]
             {
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - controlBlock->start);
-                STABLEARB_LOG_INFO(controlBlock->handler, controlBlock->name, "took", duration.count(), "µs");
+                STABLEARB_LOG_INFO(
+                    controlBlock->handler, "[PROFILER]", controlBlock->name, "took", duration.count(), "µs");
             }
         }
 
         std::optional<ControlBlock> controlBlock = std::nullopt;
+        bool moved = false;
     };
 
     inline Timer<RouterHandler<Router>> handle(tag::Profiler::Guard, std::string_view name)

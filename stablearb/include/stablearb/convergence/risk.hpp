@@ -18,7 +18,7 @@ private:
     {
         if (aborted.test())
         {
-            this->getHandler()->invoke(tag::Sender::MassCancel{});
+            // cancel on disconnect is enabled on login
             this->getHandler()->invoke(tag::Stream::Stop{});
             this->getHandler()->invoke(tag::Logger::Stop{});
             std::abort();

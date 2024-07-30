@@ -156,7 +156,7 @@ struct FIXMessageBuilder
         auto const password = encodeBase64(passwordSHA256.data(), passwordSHA256.size());
 
         builder.reset(seqNum, 'A');
-        builder.append("108", 2);
+        builder.append("108", 10);
         builder.append("96", rawData);
         builder.append("553", username);
         builder.append("554", password);
@@ -170,6 +170,27 @@ struct FIXMessageBuilder
     inline std::string_view logout(std::size_t seqNum)
     {
         builder.reset(seqNum, '5');
+        return builder.serialize();
+    }
+
+    inline std::string_view heartbeat(std::size_t seqNum, std::string_view testReqId)
+    {
+        builder.reset(seqNum, '0');
+        builder.append("112", testReqId);
+        return builder.serialize();
+    }
+
+    inline std::string_view marketDataRequestTopLevel(std::size_t seqNum, std::string_view symbol)
+    {
+        builder.reset(seqNum, 'V');
+        builder.append("262", seqNum);
+        builder.append("263", 0); // full refresh of 1 depth
+        builder.append("264", 1);
+        builder.append("55", symbol);
+        builder.append("267", 3);
+        builder.append("269", 0);
+        builder.append("269", 1);
+        builder.append("269", 3);
         return builder.serialize();
     }
 
@@ -263,7 +284,12 @@ struct FIXReader
     FIXReader(FIXReader&&) = default;
     FIXReader& operator=(FIXReader&&) = default;
 
-    inline std::string_view getString(std::string const& tag) { return fields[tag]; }
+    inline std::string_view getString(std::string const& tag)
+    {
+        if (fields.contains(tag))
+            return fields[tag];
+        return "unknown";
+    }
 
     template<concepts::Numerical T>
     inline T getNumber(std::string const& tag)
@@ -286,6 +312,8 @@ struct FIXReader
         auto val = getString(tag);
         return val == "Y" || val == "y";
     }
+
+    inline bool isMessageType(std::string_view msgType) { return getString("35") == msgType; }
 
 private:
     boost::unordered_flat_map<std::string, std::string> fields;

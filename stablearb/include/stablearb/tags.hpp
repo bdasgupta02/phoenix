@@ -41,21 +41,6 @@ struct Quoter
     {};
 };
 
-struct Sender
-{
-    struct MassCancel
-    {};
-
-    struct MassQuote
-    {};
-
-    struct Quote
-    {};
-
-    struct TargetReset
-    {};
-};
-
 struct Risk
 {
     struct Fill
