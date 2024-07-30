@@ -170,7 +170,6 @@ private:
         auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
         auto const size = recvBuffer.size();
         std::string_view str{data, size};
-        /*STABLEARB_LOG_INFO(this->getHandler(), "TEST MESSAGE RECEIVED", str);*/
 
         FIXReader reader{str};
         STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);

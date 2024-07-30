@@ -29,8 +29,8 @@ struct Config
         {
             po::options_description desc("Config");
 
-            double lotSizeDouble{0.00};
-            double tickSizeDouble{0.00};
+            double lotSizeDouble;
+            double tickSizeDouble;
 
             // clang-format off
             desc.add_options()
@@ -45,7 +45,6 @@ struct Config
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
-                ("exit-ticks", po::value<std::uint64_t>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
                 ("position-limit", po::value<double>(&positionBoundary)->default_value(positionBoundary), "One sided quote position limit")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
@@ -61,10 +60,10 @@ struct Config
                 return false;
             }
 
+            po::notify(vm);
             lotSize = VolumeType{lotSizeDouble};
             tickSize = PriceType{tickSizeDouble};
 
-            po::notify(vm);
             return true;
         }
         catch (po::error const& e)
@@ -88,12 +87,13 @@ struct Config
     // app
     std::string instrument;
     std::string kind;
+
     VolumeType lotSize;
     PriceType tickSize;
+
     double positionBoundary = 20.0;
     bool profiled = false;
     double fee = 0.00;
-    std::uint64_t exitTicks = 1;
     LogLevel logLevel = LogLevel::INFO;
     bool printLogs = false;
 };

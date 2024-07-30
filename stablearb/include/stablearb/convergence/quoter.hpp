@@ -52,7 +52,7 @@ struct Quoter : NodeBase
                 return;
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
-            STABLEARB_LOG_INFO(handler, "Quoted bid side with price", bestBid.template as<double>());
+            STABLEARB_LOG_INFO(handler, "Quoted bid side with volume", quote.volume.str(), '@', bestBid.str());
         }
 
         if (bestAsk > 1.0 && lastAsk != bestAsk)
@@ -63,7 +63,7 @@ struct Quoter : NodeBase
                 return;
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
-            STABLEARB_LOG_INFO(handler, "Quoted ask side with price", bestAsk.template as<double>());
+            STABLEARB_LOG_INFO(handler, "Quoted bid side with volume", quote.volume.str(), '@', bestAsk.str());
         }
     }
 
@@ -80,7 +80,8 @@ struct Quoter : NodeBase
             auto remaining = report.getDecimal<VolumeType>("151");
 
             orders[orderId] = remaining;
-            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with remaining", remaining.str(), '@', price);
+            STABLEARB_LOG_INFO(
+                handler, "New order:", orderId, "with remaining", remaining.template as<double>(), '@', price);
         }
 
         // partial/total fill
@@ -107,7 +108,14 @@ struct Quoter : NodeBase
             }
 
             orders[orderId] = remaining;
-            STABLEARB_LOG_INFO(handler, "Order filled:", orderId, "with remaining", remaining.str(), '@', price.str());
+            STABLEARB_LOG_INFO(
+                handler,
+                "Order filled:",
+                orderId,
+                "with remaining",
+                remaining.template as<double>(),
+                '@',
+                price.template as<double>());
         }
 
         // cancelled

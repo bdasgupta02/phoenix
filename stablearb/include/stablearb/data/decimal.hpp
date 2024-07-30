@@ -6,6 +6,7 @@
 #include <concepts>
 #include <cstdint>
 #include <exception>
+#include <string>
 #include <string_view>
 
 namespace stablearb {
@@ -91,26 +92,21 @@ public:
 
     std::string str() const
     {
-        std::uint64_t left = (value / multiplier) * (multiplier * 10);
-        std::uint64_t right = (value % multiplier) + multiplier;
+        std::uint64_t integerPart = value / multiplier;
+        std::uint64_t fractionalPart = value % multiplier;
 
-        std::string result;
-
-        if (left == 0)
+        std::string fractionalPartStr = std::to_string(fractionalPart);
+        if (fractionalPartStr.length() < Precision)
         {
-            result = std::to_string(left + right + (multiplier * 10));
-            std::uint64_t dotIdx = result.size() - Precision - 1;
-            result[0] = '0';
-            result[dotIdx] = '.';
-        }
-        else
-        {
-            result = std::to_string(left + right);
-            std::uint64_t dotIdx = result.size() - Precision - 1;
-            result[dotIdx] = '.';
+            fractionalPartStr.insert(fractionalPartStr.begin(), Precision - fractionalPartStr.length(), '0');
         }
 
-        return std::move(result);
+        fractionalPartStr.erase(fractionalPartStr.find_last_not_of('0') + 1, std::string::npos);
+
+        if (fractionalPartStr.empty())
+            return std::to_string(integerPart);
+
+        return std::to_string(integerPart) + '.' + fractionalPartStr;
     }
 
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
@@ -120,12 +116,12 @@ public:
     auto operator<=>(Decimal const&) const = default;
 
     void modify(auto&& func) { value = func(value); }
-    
+
     bool error = false;
 
 private:
     std::uint64_t value = 0ULL;
-    static constexpr std::uint64_t multiplier = detail::getMultiplier<Precision>();
+    static constexpr std::uint64_t multiplier = Precision == 0u ? 1 : detail::getMultiplier<Precision>();
 };
 
 } // namespace stablearb

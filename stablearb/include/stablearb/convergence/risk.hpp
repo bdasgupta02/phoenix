@@ -28,13 +28,19 @@ struct Risk : NodeBase
         auto* config = this->getConfig();
         auto boundary = config->positionBoundary;
 
-        if (quote.side == 1 && boundary < longPos - shortPos)
+        if (quote.side == 1 && boundary >= longPos - shortPos)
             return true;
 
-        if (quote.side == 2 && boundary < shortPos - longPos)
+        if (quote.side == 2 && boundary >= shortPos - longPos)
             return true;
 
-        STABLEARB_LOG_WARN(handler, "Position risk limit violated, order blocked. Position:", longPos, shortPos);
+        STABLEARB_LOG_WARN(
+            handler,
+            "Position risk limit violated, order blocked. Position:",
+            longPos,
+            shortPos,
+            "with boundary",
+            boundary);
         return false;
     }
 
