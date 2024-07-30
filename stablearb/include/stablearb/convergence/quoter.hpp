@@ -145,8 +145,8 @@ struct Quoter : NodeBase
                 handler->invoke(tag::Risk::UpdatePosition{}, executed.template as<double>(), side == 1u ? 2u : 1u);
             else if (executed > 0)
             {
-                auto reversedSide = side == 1 ? 2 : 1;
-                auto reversedPrice = side == 1 ? price + tickSize : price - tickSize;
+                unsigned int reversedSide = side == 1 ? 2 : 1;
+                PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
                 SingleQuote<Traits> quote{.price = reversedPrice, .volume = executed, .side = reversedSide};
                 STABLEARB_LOG_INFO(
                     handler,
@@ -206,7 +206,7 @@ private:
             '@',
             quote.price.template as<double>());
 
-        handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 1u);
+        handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), quote.side);
     }
 
     PriceType lastQuote;
