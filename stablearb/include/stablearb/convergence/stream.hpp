@@ -107,14 +107,14 @@ private:
                 {
                     auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getStringView("112"));
                     sendMsg(msg);
-                    STABLEARB_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
+                    STABLEARB_LOG_DEBUG(handler, "Received TestRequest, sending Heartbeat");
                     continue;
                 }
 
                 // heartbeat
                 if (reader.isMessageType("0"))
                 {
-                    STABLEARB_LOG_INFO(handler, "Received Heartbeat");
+                    STABLEARB_LOG_DEBUG(handler, "Received Heartbeat");
                     continue;
                 }
 
