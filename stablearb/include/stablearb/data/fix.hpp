@@ -29,6 +29,7 @@ template<typename T>
 concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_as<T, char> && !std::same_as<T, bool>;
 }
 
+// Largely unoptimized for now
 struct FIXBuilder
 {
     FIXBuilder()
@@ -203,6 +204,16 @@ struct FIXMessageBuilder
         builder.append("269", 0);
         builder.append("269", 1);
         builder.append("269", 3);
+        return builder.serialize();
+    }
+
+    inline std::string_view newOrderSingle(std::size_t seqNum, auto& quote)
+    {
+        builder.reset(seqNum, 'D');
+        builder.append("11", seqNum);
+        builder.append("54", quote.side);
+        builder.append("38", quote.volume.str());
+        builder.append("44", quote.price.str());
         return builder.serialize();
     }
 

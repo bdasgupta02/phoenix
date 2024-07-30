@@ -73,7 +73,11 @@ struct Stream : NodeBase
         startPipeline();
     }
 
-    inline void handle(tag::Stream::SendQuote, SingleQuote<Traits>& quote) {}
+    inline void handle(tag::Stream::SendQuote, SingleQuote<Traits>& quote)
+    {
+        auto msg = fixBuilder.newOrderSingle(nextSeqNum, quote);
+        sendMsg(msg);
+    }
 
 private:
     inline void startPipeline()
