@@ -59,8 +59,8 @@ struct Quoter : NodeBase
         auto tickSize = config->tickSize;
         auto lotSize = config->lotSize;
 
-        // 2 * lotSize for safety
-        if (bestBid < 1.0 && bestBidQty > lotSize + lotSize && lastBid != bestBid)
+        // > lotSize to prevent trading on my own book event
+        if (bestBid < 1.0 && bestBidQty > lotSize && lastBid != bestBid)
         {
             auto tickSize = config->tickSize;
 
@@ -79,8 +79,7 @@ struct Quoter : NodeBase
                 handler, "Quoted bid", quote.volume.template as<double>(), '@', bestBid.template as<double>());
         }
 
-        // 2 * lotSize for safety
-        if (bestAsk > 1.0 && bestAskQty > lotSize + lotSize && lastAsk != bestAsk)
+        if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk)
         {
             auto tickSize = config->tickSize;
 
