@@ -45,10 +45,10 @@ struct Config
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("aggressive", po::value<bool>(&aggressive)->default_value(aggressive), "Aggressive mode")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
-                ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
                 ("position-limit", po::value<double>(&positionBoundary)->default_value(positionBoundary), "One sided quote position limit")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
+                ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
             ;
             // clang-format on
 
@@ -88,6 +88,7 @@ struct Config
     // app
     std::string instrument;
     std::string kind;
+    std::string logFolder;
 
     VolumeType lotSize;
     PriceType tickSize;
@@ -95,7 +96,6 @@ struct Config
     bool aggressive = true;
     double positionBoundary = 20.0;
     bool profiled = false;
-    double fee = 0.00;
     LogLevel logLevel = LogLevel::INFO;
     bool printLogs = false;
 };

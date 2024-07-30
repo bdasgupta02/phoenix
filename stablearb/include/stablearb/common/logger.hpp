@@ -72,13 +72,16 @@ struct Logger : NodeBase
 
         auto now = std::chrono::system_clock::now();
         auto inTimeT = std::chrono::system_clock::to_time_t(now);
+        auto* config = this->getConfig();
 
         std::stringstream ss;
-        ss << this->getConfig()->instrument << "-";
+        ss << config->logFolder;
+        ss << '/';
+        ss << config->instrument << "-";
         ss << std::put_time(std::gmtime(&inTimeT), "%Y%m%d-%H%M%S");
         ss << ".log";
 
-        logPath = (std::filesystem::current_path() / ss.str()).string();
+        logPath = ss.str();
         logFile.emplace(std::ofstream(logPath, std::ios::app));
         logger.emplace(&Logger::loggerThread, this);
     }
