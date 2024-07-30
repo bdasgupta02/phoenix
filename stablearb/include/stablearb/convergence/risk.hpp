@@ -44,41 +44,15 @@ struct Risk : NodeBase
         return false;
     }
 
-    inline void handle(tag::Risk::UpdatePosition, FIXReader&& reader)
+    inline void handle(tag::Risk::UpdatePosition, double pos, unsigned int side)
     {
-        auto* handler = this->getHandler();
-        auto* config = this->getConfig();
-        auto& instrument = config->instrument;
+        if (side == 1)
+            longPos += pos;
 
-        auto numPositions = reader.getNumber<std::size_t>("702");
+        if (side == 2)
+            shortPos += pos;
 
-        for (std::size_t i = 0u; i < numPositions; ++i)
-        {
-            if (reader.getStringView("55", i) == instrument)
-            {
-                if (initial)
-                {
-                    if (reader.contains("704", i))
-                        longPos = reader.getNumber<double>("704", i);
-
-                    if (reader.contains("705", i))
-                        shortPos = reader.getNumber<double>("705", i);
-                }
-                else
-                {
-                    if (reader.contains("704", i))
-                        longPos += reader.getNumber<double>("704", i);
-
-                    if (reader.contains("705", i))
-                        shortPos += reader.getNumber<double>("705", i);
-                }
-
-                STABLEARB_LOG_INFO(handler, "Received position update. Current position:", longPos, shortPos);
-                return;
-            }
-        }
-
-        STABLEARB_LOG_WARN(handler, "No instrument position in position update");
+        STABLEARB_LOG_INFO(this->getHandler(), "Position updated", longPos, shortPos);
     }
 
 private:

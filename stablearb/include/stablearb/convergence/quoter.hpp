@@ -79,6 +79,7 @@ struct Quoter : NodeBase
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
+            handler->invoke(tag::Risk::UpdatePosition{}, quotePrice.template as<double>(), 1u);
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
                 handler, "Quoted bid", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
@@ -102,6 +103,7 @@ struct Quoter : NodeBase
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
+            handler->invoke(tag::Risk::UpdatePosition{}, quotePrice.template as<double>(), 2u);
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
                 handler, "Quoted ask", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
@@ -128,7 +130,7 @@ struct Quoter : NodeBase
         // partial/total fill
         if (status == 1 || status == 2)
         {
-            auto price = PriceType{report.getString("44")};
+            auto price = report.getDecimal<PriceType>("44");
             STABLEARB_LOG_VERIFY(handler, (!price.error), "Price parse error");
 
             auto side = report.getNumber<unsigned int>("54");
@@ -140,7 +142,12 @@ struct Quoter : NodeBase
 
             // take-profit order
             auto executed = lastRemaining - remaining;
-            if (executed > 0)
+            handler->invoke(tag::Risk::UpdatePosition{}, -(executed.template as<double>()), side);
+
+            auto it = orders.find(orderId);
+
+            // if this is not a take-profit order being filled
+            if (executed > 0 && it != orders.end())
             {
                 auto reversedSide = side == 1 ? 2 : 1;
                 auto reversedPrice = side == 1 ? price + tickSize : price - tickSize;
@@ -154,7 +161,6 @@ struct Quoter : NodeBase
                     quote.price.template as<double>());
             }
 
-            auto it = orders.find(orderId);
             it->second = remaining;
             if (remaining.getValue() == 0)
                 orders.erase(orderId);

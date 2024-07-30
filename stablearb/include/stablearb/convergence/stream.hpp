@@ -87,10 +87,6 @@ private:
 
         STABLEARB_LOG_INFO(handler, "Starting trading pipeline");
 
-        // init position snapshot here after incremental request
-        auto posRequest = fixBuilder.requestForPositions(nextSeqNum);
-        sendMsg(posRequest);
-
         while (isRunning)
         {
             try
@@ -133,13 +129,6 @@ private:
                 if (reader.isMessageType("W"))
                 {
                     handler->invoke(tag::Quoter::Quote{}, std::move(reader), nextSeqNum);
-                    continue;
-                }
-
-                // position update
-                if (reader.isMessageType("AP"))
-                {
-                    handler->invoke(tag::Risk::UpdatePosition{}, std::move(reader));
                     continue;
                 }
             }
