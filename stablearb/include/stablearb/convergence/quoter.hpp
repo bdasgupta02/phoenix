@@ -79,7 +79,7 @@ struct Quoter : NodeBase
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
-            handler->invoke(tag::Risk::UpdatePosition{}, quotePrice.template as<double>(), 1u);
+            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 1u);
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
                 handler, "Quoted bid", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
@@ -103,7 +103,7 @@ struct Quoter : NodeBase
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
-            handler->invoke(tag::Risk::UpdatePosition{}, quotePrice.template as<double>(), 2u);
+            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 2u);
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
                 handler, "Quoted ask", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
@@ -146,7 +146,7 @@ struct Quoter : NodeBase
 
             // if this is a take profit order, rebalance position
             if (clOrderId.size() > 0 && clOrderId[0] == 't')
-                handler->invoke(tag::Risk::UpdatePosition{}, -(executed.template as<double>()), side == 1u ? 2u : 1u);
+                handler->invoke(tag::Risk::UpdatePosition{}, executed.template as<double>(), side == 1u ? 2u : 1u);
             else if (executed > 0)
             {
                 auto reversedSide = side == 1 ? 2 : 1;

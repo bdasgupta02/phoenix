@@ -52,7 +52,7 @@ struct Risk : NodeBase
         if (side == 2)
             shortPos += pos;
 
-        STABLEARB_LOG_INFO(this->getHandler(), "Position updated", longPos, shortPos);
+        STABLEARB_LOG_INFO(this->getHandler(), "Position updated with long", longPos, "and short", shortPos);
     }
 
 private:
