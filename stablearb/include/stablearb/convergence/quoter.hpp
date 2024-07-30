@@ -70,23 +70,17 @@ struct Quoter : NodeBase
             if (aggressive)
             {
                 PriceType aggressiveBid = bestBid + tickSize;
+                VolumeType doubleLotSize = lotSize + lotSize;
                 if (aggressiveBid < 1.0 && aggressiveBid < bestAsk)
-                    quotePrice = aggressiveBid;
+                {
+                    sendQuote({.price = aggressiveBid, .volume = lotSize, .side = 1});
+                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 1});
+                }
+                else
+                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 1});
             }
-
-            SingleQuote<Traits> quote{.price = quotePrice, .volume = config->lotSize, .side = 1};
-
-            if (!handler->retrieve(tag::Risk::Check{}, quote))
-                return;
-
-            handler->invoke(tag::Stream::SendQuote{}, quote);
-            STABLEARB_LOG_INFO(
-                handler,
-                "Sent bid limit order",
-                quote.volume.template as<double>(),
-                '@',
-                quotePrice.template as<double>());
-            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 1u);
+            else
+                sendQuote({.price = quotePrice, .volume = lotSize, .side = 1});
         }
 
         if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk)
@@ -98,23 +92,17 @@ struct Quoter : NodeBase
             if (aggressive)
             {
                 PriceType aggressiveAsk = bestAsk - tickSize;
+                VolumeType doubleLotSize = lotSize + lotSize;
                 if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid)
-                    quotePrice = aggressiveAsk;
+                {
+                    sendQuote({.price = aggressiveAsk, .volume = lotSize, .side = 2});
+                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 2});
+                }
+                else
+                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 2});
             }
-
-            SingleQuote<Traits> quote{.price = quotePrice, .volume = config->lotSize, .side = 2};
-
-            if (!handler->retrieve(tag::Risk::Check{}, quote))
-                return;
-
-            handler->invoke(tag::Stream::SendQuote{}, quote);
-            STABLEARB_LOG_INFO(
-                handler,
-                "Sent ask limit order",
-                quote.volume.template as<double>(),
-                '@',
-                quotePrice.template as<double>());
-            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 2u);
+            else
+                sendQuote({.price = quotePrice, .volume = lotSize, .side = 2});
         }
     }
 
@@ -199,6 +187,26 @@ struct Quoter : NodeBase
             orders.erase(orderId);
             STABLEARB_LOG_ERROR(handler, "Order rejected:", orderId, "due to reason", reason);
         }
+    }
+
+private:
+    void sendQuote(SingleQuote<Traits> quote)
+    {
+        auto* handler = this->getHandler();
+
+        if (!handler->retrieve(tag::Risk::Check{}, quote))
+            return;
+
+        handler->invoke(tag::Stream::SendQuote{}, quote);
+        STABLEARB_LOG_INFO(
+            handler,
+            "Quoting",
+            quote.side == 1 ? "bid" : "ask",
+            quote.volume.template as<double>(),
+            '@',
+            quote.price.template as<double>());
+
+        handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 1u);
     }
 
     PriceType lastQuote;
