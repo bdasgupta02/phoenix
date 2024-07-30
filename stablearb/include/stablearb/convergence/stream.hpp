@@ -20,7 +20,7 @@ namespace io = ::boost::asio;
 
 namespace stablearb {
 
-// Single-threaded TCP stream for Deribit with FIX
+// Single-threaded TCP stream for Deribit with FIX, specifically for convergence where liquidity is low
 template<typename NodeBase>
 struct Stream : NodeBase
 {
@@ -79,40 +79,57 @@ private:
 
         STABLEARB_LOG_INFO(handler, "Starting trading pipeline");
 
+        // init position snapshot here after incremental request
+        /*auto posRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, config->instrument);*/
+        /*sendMsg(posRequest);*/
+
         while (isRunning)
         {
             try
             {
-                auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, config->instrument);
-                sendMsg(mdRequest);
+                if (!socket.available())
+                {
+                    auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, config->instrument);
+                    sendMsg(mdRequest);
+                }
 
+                // 18ms RTT on average
                 auto reader = recvMsg();
 
+                [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
+
+                // test request
                 if (reader.isMessageType("1"))
                 {
                     auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getString("112"));
                     sendMsg(msg);
-                    STABLEARB_LOG_INFO(handler, "Received TestRequest");
-                    continue;
+                    STABLEARB_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
+                    reader = recvMsg();
                 }
 
+                // heartbeat
                 if (reader.isMessageType("0"))
                 {
                     STABLEARB_LOG_INFO(handler, "Received Heartbeat");
-                    continue;
+                    reader = recvMsg();
                 }
 
-                if (reader.isMessageType("W"))
+                // execution report
+                if (reader.isMessageType("8"))
                 {
-                    [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
-                    
-                    continue;
+                    handler->invoke(tag::Quoter::ExecutionReport{}, std::move(reader));
+                    reader = recvMsg();
                 }
+
+                // market data update
+                if (reader.isMessageType("W"))
+                    handler->invoke(tag::Quoter::Quote{}, std::move(reader), nextSeqNum);
+
+                // subscribe to position incremental too, and if one comes in, set take profit automatically
             }
             catch (std::exception const& e)
             {
                 STABLEARB_LOG_FATAL(handler, "Error in trading pipeline", e.what());
-                handle(tag::Stream::Stop{});
                 break;
             }
         }
@@ -123,7 +140,7 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret);
+        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 5);
         sendMsg(msg);
         auto reader = recvMsg();
 
@@ -137,7 +154,7 @@ private:
         auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
         auto const size = recvBuffer.size();
         std::string_view str{data, size};
-        STABLEARB_LOG_INFO(this->getHandler(), "TEST MESSAGE RECEIVED", str);
+        /*STABLEARB_LOG_INFO(this->getHandler(), "TEST MESSAGE RECEIVED", str);*/
 
         FIXReader reader{str};
         STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);

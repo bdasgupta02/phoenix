@@ -15,7 +15,7 @@ struct Logger
 {
     struct Start
     {};
-    
+
     struct Stop
     {};
 
@@ -34,24 +34,15 @@ struct Profiler
 
 struct Quoter
 {
-    struct Disable
+    struct Quote
     {};
 
-    struct BookUpdate
+    struct ExecutionReport
     {};
 };
 
 struct Risk
 {
-    struct Fill
-    {};
-
-    struct BookUpdate
-    {};
-
-    struct Error
-    {};
-
     struct Abort
     {};
 };

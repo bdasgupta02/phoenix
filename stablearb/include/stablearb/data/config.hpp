@@ -43,7 +43,7 @@ struct Config
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
                 ("exit-ticks", po::value<std::uint32_t>(&exitTicks)->default_value(exitTicks), "Aggressive ticks to take profit and exit position")
-                ("inventory-limit", po::value<std::uint32_t>(&inventoryLimit)->default_value(inventoryLimit), "Total inventory limit")
+                ("inventory-limit", po::value<std::uint32_t>(&inventoryLimit)->default_value(inventoryLimit), "One sided inventory position limit")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
             ;

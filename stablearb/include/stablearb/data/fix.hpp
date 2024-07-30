@@ -22,8 +22,6 @@
 // Existing C++ implementations of FIX protocol were boring and overly complicated,
 // so this is one that reduces copying and allocations, and assumes single-threaded use
 
-// TODO: reader should return (unknown) if field doesn't exist
-
 namespace stablearb {
 
 namespace concepts {
@@ -132,7 +130,7 @@ private:
 struct FIXMessageBuilder
 {
 
-    std::string_view login(std::size_t seqNum, std::string_view username, std::string_view secret)
+    std::string_view login(std::size_t seqNum, std::string_view username, std::string_view secret, int heartbeatSeconds)
     {
         std::uint64_t timestamp =
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -156,7 +154,7 @@ struct FIXMessageBuilder
         auto const password = encodeBase64(passwordSHA256.data(), passwordSHA256.size());
 
         builder.reset(seqNum, 'A');
-        builder.append("108", 10);
+        builder.append("108", heartbeatSeconds);
         builder.append("96", rawData);
         builder.append("553", username);
         builder.append("554", password);
@@ -194,6 +192,20 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
+    inline std::string_view marketDataRequestIncremental(std::size_t seqNum, std::string_view symbol)
+    {
+        builder.reset(seqNum, 'V');
+        builder.append("262", seqNum);
+        builder.append("263", 1);
+        builder.append("265", 1);
+        builder.append("55", symbol);
+        builder.append("267", 3);
+        builder.append("269", 0);
+        builder.append("269", 1);
+        builder.append("269", 3);
+        return builder.serialize();
+    }
+
 private:
     std::string encodeBase64(auto* bytes, unsigned int length)
     {
@@ -214,7 +226,7 @@ private:
                 charArray4[3] = charArray3[2] & 0x3f;
 
                 for (i = 0; (i < 4); i++)
-                    ret += base64Chars[charArray4[i]];
+                    ret += BASE_64_CHARS[charArray4[i]];
                 i = 0;
             }
         }
@@ -230,7 +242,7 @@ private:
             charArray4[3] = charArray3[2] & 0x3f;
 
             for (j = 0; (j < i + 1); j++)
-                ret += base64Chars[charArray4[j]];
+                ret += BASE_64_CHARS[charArray4[j]];
 
             while ((i++ < 3))
                 ret += '=';
@@ -270,9 +282,9 @@ private:
         return hash;
     }
 
-    static constexpr char base64Chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                          "abcdefghijklmnopqrstuvwxyz"
-                                          "0123456789+/";
+    static constexpr char BASE_64_CHARS[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                            "abcdefghijklmnopqrstuvwxyz"
+                                            "0123456789+/";
 
     FIXBuilder builder;
 };
@@ -284,39 +296,46 @@ struct FIXReader
     FIXReader(FIXReader&&) = default;
     FIXReader& operator=(FIXReader&&) = default;
 
-    inline std::string_view getString(std::string const& tag)
+    FIXReader(FIXReader&) = delete;
+    FIXReader& operator=(FIXReader&) = delete;
+
+    inline std::string_view getString(std::string const& tag, std::size_t index = 0u)
     {
-        if (fields.contains(tag))
-            return fields[tag];
-        return "unknown";
+        auto it = fields.find(tag);
+        if (it != fields.end())
+            if (it->second.size() > index)
+                return it->second[index];
+        return UNKNOWN;
     }
 
     template<concepts::Numerical T>
-    inline T getNumber(std::string const& tag)
+    inline T getNumber(std::string const& tag, std::size_t index = 0u)
     {
-        auto val = fields[tag];
+        auto val = fields[tag][index];
         T result;
         std::from_chars(val.data(), val.data() + val.size(), result);
         return result;
     }
 
-    template<typename Traits>
-    inline Traits::PriceType getPrice(std::string const& tag)
+    template<typename PriceType>
+    inline PriceType getPrice(std::string const& tag, std::size_t index = 0u)
     {
-        double value = getNumber<double>(tag);
+        double value = getNumber<double>(tag, index);
         return {value};
     }
 
-    inline bool getBool(std::string const& tag)
+    inline bool getBool(std::string const& tag, std::size_t index = 0u)
     {
-        auto val = getString(tag);
+        auto val = getString(tag, index);
         return val == "Y" || val == "y";
     }
 
     inline bool isMessageType(std::string_view msgType) { return getString("35") == msgType; }
 
+    static constexpr std::string UNKNOWN = "UNKNOWN";
+
 private:
-    boost::unordered_flat_map<std::string, std::string> fields;
+    boost::unordered_flat_map<std::string, std::vector<std::string>> fields;
 };
 
 } // namespace stablearb

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <compare>
 #include <concepts>
 #include <cstdint>
 #include <exception>
@@ -33,6 +34,12 @@ public:
     Decimal(std::uint64_t value)
         : value(value)
     {}
+
+    Decimal(Decimal&&) = default;
+    Decimal& operator=(Decimal&&) = default;
+
+    Decimal(Decimal&) = default;
+    Decimal& operator=(Decimal&) = default;
 
     std::uint64_t data() const { return value; }
 
@@ -68,6 +75,9 @@ public:
 
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
     Decimal operator-(Decimal const& other) const { return {value - other.value}; }
+
+    auto operator<=>(double other) { return as<double>() <=> other; }
+    auto operator<=>(Decimal const&) const = default;
 
     void modify(auto&& func) { value = func(value); }
 
