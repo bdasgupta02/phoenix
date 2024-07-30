@@ -79,10 +79,14 @@ struct Quoter : NodeBase
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
-            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 1u);
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
-                handler, "Quoted bid", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
+                handler,
+                "Sent bid limit order",
+                quote.volume.template as<double>(),
+                '@',
+                quotePrice.template as<double>());
+            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 1u);
         }
 
         if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk)
@@ -103,10 +107,14 @@ struct Quoter : NodeBase
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
-            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 2u);
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
-                handler, "Quoted ask", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
+                handler,
+                "Sent ask limit order",
+                quote.volume.template as<double>(),
+                '@',
+                quotePrice.template as<double>());
+            handler->invoke(tag::Risk::UpdatePosition{}, quote.volume.template as<double>(), 2u);
         }
     }
 
