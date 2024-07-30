@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cctype>
 #include <cmath>
 #include <compare>
 #include <concepts>
@@ -34,6 +35,45 @@ public:
     Decimal(std::uint64_t value)
         : value(value)
     {}
+
+    Decimal(std::string_view str)
+    {
+        bool seenDecimal = false;
+        std::uint64_t integerPart = 0;
+        std::uint64_t fractionalPart = 0;
+        std::uint8_t fractionalDigits = 0;
+
+        auto start = str.begin();
+        auto end = str.end();
+
+        for (auto it = start; it < end; ++it)
+        {
+            char ch = *it;
+
+            if (ch == '.')
+                seenDecimal = true;
+            else if (ch >= '0' && ch <= '9')
+            {
+                if (seenDecimal)
+                {
+                    if (fractionalDigits < Precision)
+                    {
+                        fractionalPart = fractionalPart * 10 + (ch - '0');
+                        ++fractionalDigits;
+                    }
+                }
+                else
+                    integerPart = integerPart * 10 + (ch - '0');
+            }
+            else
+                this->error = true;
+        }
+
+        if (fractionalDigits < Precision)
+            fractionalPart *= static_cast<std::uint64_t>(std::pow(10, Precision - fractionalDigits));
+
+        value = (integerPart * multiplier) + fractionalPart;
+    }
 
     Decimal(Decimal&&) = default;
     Decimal& operator=(Decimal&&) = default;
@@ -80,6 +120,8 @@ public:
     auto operator<=>(Decimal const&) const = default;
 
     void modify(auto&& func) { value = func(value); }
+    
+    bool error = false;
 
 private:
     std::uint64_t value = 0ULL;

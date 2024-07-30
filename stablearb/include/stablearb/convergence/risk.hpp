@@ -24,8 +24,8 @@ struct Risk : NodeBase
     {
         checkAbort();
 
-        auto* handler = this->getConfig();
-        auto* config = this->getHandler();
+        auto* handler = this->getHandler();
+        auto* config = this->getConfig();
         auto boundary = config->positionBoundary;
 
         if (quote.side == 1 && boundary < longPos - shortPos)

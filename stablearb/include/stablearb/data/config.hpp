@@ -30,6 +30,7 @@ struct Config
             po::options_description desc("Config");
 
             double lotSizeDouble{0.00};
+            double tickSizeDouble{0.00};
 
             // clang-format off
             desc.add_options()
@@ -39,7 +40,8 @@ struct Config
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
-                ("lot-size", po::value<double>(&lotSizeDouble), "Quote lot size")
+                ("lot-size", po::value<double>(&lotSizeDouble)->required(), "Quote lot size")
+                ("tick-size", po::value<double>(&tickSizeDouble)->required(), "Minimum tick size")
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
@@ -60,6 +62,7 @@ struct Config
             }
 
             lotSize = VolumeType{lotSizeDouble};
+            tickSize = PriceType{tickSizeDouble};
 
             po::notify(vm);
             return true;
@@ -86,6 +89,7 @@ struct Config
     std::string instrument;
     std::string kind;
     VolumeType lotSize;
+    PriceType tickSize;
     double positionBoundary = 20.0;
     bool profiled = false;
     double fee = 0.00;

@@ -28,13 +28,15 @@ struct Quoter : NodeBase
 
         if (topLevel.getNumber<unsigned int>("269", 0) == 0)
         {
-            bestBid = topLevel.getDecimal<PriceType>("270", 0);
-            bestAsk = topLevel.getDecimal<PriceType>("270", 1);
+            bestBid = PriceType{topLevel.getStringView("270", 0)};
+            bestAsk = PriceType{topLevel.getStringView("270", 1)};
+            STABLEARB_LOG_VERIFY(handler, (!bestBid.error && !bestBid.error), "Price parse error");
         }
         else if (topLevel.getNumber<unsigned int>("269", 1) == 0)
         {
-            bestBid = topLevel.getDecimal<PriceType>("270", 1);
-            bestAsk = topLevel.getDecimal<PriceType>("269", 0);
+            bestBid = PriceType{topLevel.getStringView("270", 1)};
+            bestAsk = PriceType{topLevel.getStringView("270", 0)};
+            STABLEARB_LOG_VERIFY(handler, (!bestBid.error && !bestBid.error), "Price parse error");
         }
         else
         {
@@ -46,7 +48,7 @@ struct Quoter : NodeBase
         {
             SingleQuote<Traits> quote{.price = bestBid, .volume = config->lotSize, .side = 1};
 
-            if (!handler->invoke(tag::Risk::Check, quote))
+            if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
@@ -57,7 +59,7 @@ struct Quoter : NodeBase
         {
             SingleQuote<Traits> quote{.price = bestAsk, .volume = config->lotSize, .side = 2};
 
-            if (!handler->invoke(tag::Risk::Check, quote))
+            if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
@@ -74,25 +76,32 @@ struct Quoter : NodeBase
         // new order
         if (status == 0)
         {
-            auto price = report.getDecimal<PriceType>("44");
+            auto price = report.getStringView("44");
             auto remaining = report.getDecimal<VolumeType>("151");
 
             orders[orderId] = remaining;
-            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with remaining", remaining.str(), '@', price.str());
+            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with remaining", remaining.str(), '@', price);
         }
 
         // partial/total fill
         if (status == 1 || status == 2)
         {
-            auto price = report.getDecimal<PriceType>("44");
+            auto price = PriceType{report.getString("44")};
+            STABLEARB_LOG_VERIFY(handler, (!price.error), "Price parse error");
+
+            auto side = report.getNumber<unsigned int>("54");
             auto remaining = report.getDecimal<VolumeType>("151");
             auto lastRemaining = orders[orderId];
-            
+
+            auto* config = this->getConfig();
+            auto tickSize = config->tickSize;
+
             // take-profit order
-            auto executed = lastRemaining - remaining; 
+            auto executed = lastRemaining - remaining;
             if (executed > 0)
             {
-                
+                auto reversedSide = side == 1 ? 2 : 1;
+                auto reversedPrice = reversedSide == 1 ? price + tickSize : price - tickSize;
             }
 
             orders[orderId] = remaining;
