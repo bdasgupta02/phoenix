@@ -21,6 +21,7 @@ template<typename Traits>
 struct Config
 {
     using PriceType = Traits::PriceType;
+    using VolumeType = Traits::VolumeType;
 
     bool apply(int argc, char* argv[])
     {
@@ -38,7 +39,7 @@ struct Config
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
-                ("lotSize", po::value<double>(&lotSizeDouble), "Quote lot size mininimum increment")
+                ("lot-size", po::value<double>(&lotSizeDouble), "Quote lot size")
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
@@ -58,7 +59,7 @@ struct Config
                 return false;
             }
 
-            lotSize = PriceType{lotSizeDouble};
+            lotSize = VolumeType{lotSizeDouble};
 
             po::notify(vm);
             return true;
@@ -84,7 +85,7 @@ struct Config
     // app
     std::string instrument;
     std::string kind;
-    PriceType lotSize;
+    VolumeType lotSize;
     bool profiled = false;
     double fee = 0.00;
     std::uint32_t exitTicks = 1;

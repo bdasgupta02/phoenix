@@ -38,8 +38,8 @@ public:
     Decimal(Decimal&&) = default;
     Decimal& operator=(Decimal&&) = default;
 
-    Decimal(Decimal&) = default;
-    Decimal& operator=(Decimal&) = default;
+    Decimal(Decimal const&) = default;
+    Decimal& operator=(Decimal const&) = default;
 
     std::uint64_t data() const { return value; }
 

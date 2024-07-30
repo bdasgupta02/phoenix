@@ -13,6 +13,7 @@ using namespace stablearb;
 struct Traits
 {
     using PriceType = Decimal<4u>;
+    using VolumeType = Decimal<4u>;
 };
 
 // clang-format off

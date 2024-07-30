@@ -9,6 +9,9 @@ struct Stream
 
     struct Stop
     {};
+
+    struct SendQuote
+    {};
 };
 
 struct Logger

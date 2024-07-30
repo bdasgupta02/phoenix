@@ -27,7 +27,7 @@ struct Stream : NodeBase
     // These handlers support any number of universal ref arguments
     // Note: if multiple nodes have the same handler function signatures, 
     // they both will receive the function call only for void handlers
-    void handle(tag::Stream::Start)
+    void handle(tag::Stream::Start, &&...)
     {
         ...
 
@@ -39,7 +39,7 @@ struct Stream : NodeBase
     }
 
     // Handlers can also return anything if needed 
-    Status handle(tag::Stream::Status, ...) 
+    Status handle(tag::Stream::Status, &&...) 
     {
         return status;
     }

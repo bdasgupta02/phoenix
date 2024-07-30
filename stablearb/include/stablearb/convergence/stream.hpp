@@ -2,6 +2,7 @@
 
 #include "stablearb/common/logger.hpp"
 #include "stablearb/data/fix.hpp"
+#include "stablearb/data/quotes.hpp"
 #include "stablearb/tags.hpp"
 
 #include <boost/asio.hpp>
@@ -24,6 +25,7 @@ namespace stablearb {
 template<typename NodeBase>
 struct Stream : NodeBase
 {
+    using Traits = NodeBase::Traits;
     using PriceType = NodeBase::Traits::PriceType;
 
     Stream(auto const& config, auto& handler)
@@ -71,6 +73,8 @@ struct Stream : NodeBase
         startPipeline();
     }
 
+    inline void handle(tag::Stream::SendQuote, SingleQuote<Traits>& quote) {}
+
 private:
     inline void startPipeline()
     {
@@ -104,26 +108,29 @@ private:
                     auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getString("112"));
                     sendMsg(msg);
                     STABLEARB_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
-                    reader = recvMsg();
+                    continue;
                 }
 
                 // heartbeat
                 if (reader.isMessageType("0"))
                 {
                     STABLEARB_LOG_INFO(handler, "Received Heartbeat");
-                    reader = recvMsg();
+                    continue;
                 }
 
                 // execution report
                 if (reader.isMessageType("8"))
                 {
                     handler->invoke(tag::Quoter::ExecutionReport{}, std::move(reader));
-                    reader = recvMsg();
+                    continue;
                 }
 
                 // market data update
                 if (reader.isMessageType("W"))
+                {
                     handler->invoke(tag::Quoter::Quote{}, std::move(reader), nextSeqNum);
+                    continue;
+                }
 
                 // subscribe to position incremental too, and if one comes in, set take profit automatically
             }
