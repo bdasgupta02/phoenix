@@ -39,6 +39,6 @@ int main(int argc, char* argv[])
     auto* handler = graph.getHandler();
 
     handler->invoke(tag::Logger::Start{});
-    STABLEARB_LOG_INFO(handler, "Starting Convergence Arbitrage System");
+    STABLEARB_LOG_INFO(handler, "Starting USD Convergence Arbitrage System");
     handler->invoke(tag::Stream::Start{});
 }

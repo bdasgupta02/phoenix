@@ -365,8 +365,8 @@ struct FIXReader
     template<typename DecimalType>
     inline DecimalType getDecimal(std::string const& tag, std::size_t index = 0u)
     {
-        double value = getNumber<double>(tag, index);
-        return {value};
+        std::string_view str = getStringView(tag, index);
+        return {str};
     }
 
     inline bool getBool(std::string const& tag, std::size_t index = 0u)

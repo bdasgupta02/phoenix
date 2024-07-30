@@ -25,18 +25,30 @@ struct Quoter : NodeBase
 
         PriceType lastBid = bestBid;
         PriceType lastAsk = bestAsk;
+        VolumeType lastBidQty = bestBidQty;
+        VolumeType lastAskQty = bestAskQty;
 
         if (topLevel.getNumber<unsigned int>("269", 0) == 0)
         {
-            bestBid = PriceType{topLevel.getStringView("270", 0)};
-            bestAsk = PriceType{topLevel.getStringView("270", 1)};
-            STABLEARB_LOG_VERIFY(handler, (!bestBid.error && !bestBid.error), "Price parse error");
+            bestBid = topLevel.getDecimal<PriceType>("270", 0);
+            bestAsk = topLevel.getDecimal<PriceType>("270", 1);
+            bestBidQty = topLevel.getDecimal<VolumeType>("271", 0);
+            bestAskQty = topLevel.getDecimal<VolumeType>("271", 1);
+            STABLEARB_LOG_VERIFY(
+                handler,
+                (!bestBid.error && !bestAsk.error && !bestBidQty.error && !bestAskQty.error),
+                "Price parse error");
         }
         else if (topLevel.getNumber<unsigned int>("269", 1) == 0)
         {
-            bestBid = PriceType{topLevel.getStringView("270", 1)};
-            bestAsk = PriceType{topLevel.getStringView("270", 0)};
-            STABLEARB_LOG_VERIFY(handler, (!bestBid.error && !bestBid.error), "Price parse error");
+            bestBid = topLevel.getDecimal<PriceType>("270", 1);
+            bestAsk = topLevel.getDecimal<PriceType>("270", 0);
+            bestBidQty = topLevel.getDecimal<VolumeType>("271", 1);
+            bestAskQty = topLevel.getDecimal<VolumeType>("271", 0);
+            STABLEARB_LOG_VERIFY(
+                handler,
+                (!bestBid.error && !bestAsk.error && !bestBidQty.error && !bestAskQty.error),
+                "Price parse error");
         }
         else
         {
@@ -44,26 +56,47 @@ struct Quoter : NodeBase
             return;
         }
 
-        if (bestBid < 1.0 && lastBid != bestBid)
+        auto tickSize = config->tickSize;
+        auto lotSize = config->lotSize;
+
+        // 2 * lotSize for safety
+        if (bestBid < 1.0 && bestBidQty > lotSize + lotSize && lastBid != bestBid)
         {
-            SingleQuote<Traits> quote{.price = bestBid, .volume = config->lotSize, .side = 1};
+            auto tickSize = config->tickSize;
+
+            PriceType quotePrice = bestBid;
+            PriceType aggressiveBid = bestBid + tickSize;
+            if (aggressiveBid < 1.0 && aggressiveBid < bestAsk)
+                quotePrice = aggressiveBid;
+
+            SingleQuote<Traits> quote{.price = quotePrice, .volume = config->lotSize, .side = 1};
 
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
-            STABLEARB_LOG_INFO(handler, "Quoted bid side with volume", quote.volume.str(), '@', bestBid.str());
+            STABLEARB_LOG_INFO(
+                handler, "Quoted bid", quote.volume.template as<double>(), '@', bestBid.template as<double>());
         }
 
-        if (bestAsk > 1.0 && lastAsk != bestAsk)
+        // 2 * lotSize for safety
+        if (bestAsk > 1.0 && bestAskQty > lotSize + lotSize && lastAsk != bestAsk)
         {
-            SingleQuote<Traits> quote{.price = bestAsk, .volume = config->lotSize, .side = 2};
+            auto tickSize = config->tickSize;
+
+            PriceType quotePrice = bestAsk;
+            PriceType aggressiveAsk = bestAsk - tickSize;
+            if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid)
+                quotePrice = aggressiveAsk;
+
+            SingleQuote<Traits> quote{.price = quotePrice, .volume = config->lotSize, .side = 2};
 
             if (!handler->retrieve(tag::Risk::Check{}, quote))
                 return;
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
-            STABLEARB_LOG_INFO(handler, "Quoted bid side with volume", quote.volume.str(), '@', bestAsk.str());
+            STABLEARB_LOG_INFO(
+                handler, "Quoted ask", quote.volume.template as<double>(), '@', bestAsk.template as<double>());
         }
     }
 
@@ -104,10 +137,20 @@ struct Quoter : NodeBase
                 auto reversedSide = side == 1 ? 2 : 1;
                 auto reversedPrice = side == 1 ? price + tickSize : price - tickSize;
                 SingleQuote<Traits> quote{.price = reversedPrice, .volume = executed, .side = reversedSide};
-                STABLEARB_LOG_INFO(handler, "Quoted take-profit order at", reversedPrice.template as<double>());
+                STABLEARB_LOG_INFO(
+                    handler,
+                    "Quoted take-profit",
+                    (side == 2 ? "bid" : "ask"),
+                    reversedPrice.template as<double>(),
+                    '@',
+                    quote.price.template as<double>());
             }
 
-            orders[orderId] = remaining;
+            auto it = orders.find(orderId);
+            it->second = remaining;
+            if (remaining.getValue() == 0)
+                orders.erase(orderId);
+
             STABLEARB_LOG_INFO(
                 handler,
                 "Order filled:",
@@ -138,6 +181,8 @@ struct Quoter : NodeBase
     PriceType lastQuote;
     PriceType bestBid;
     PriceType bestAsk;
+    VolumeType bestBidQty;
+    VolumeType bestAskQty;
 
     // <order id, remaining volume>
     boost::unordered_flat_map<std::string, VolumeType> orders;

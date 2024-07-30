@@ -1,2 +1,2 @@
-add_executable(stablearb_convergence convergence.cpp)
-target_link_libraries(stablearb_convergence PUBLIC stablearb)
+add_executable(stablearb_conv_usd convergence/usd.cpp)
+target_link_libraries(stablearb_conv_usd PUBLIC stablearb)

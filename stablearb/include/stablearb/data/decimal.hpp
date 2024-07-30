@@ -90,6 +90,8 @@ public:
         return static_cast<T>(value) / multiplier;
     }
 
+    std::uint64_t getValue() { return value; }
+
     std::string str() const
     {
         std::uint64_t integerPart = value / multiplier;
