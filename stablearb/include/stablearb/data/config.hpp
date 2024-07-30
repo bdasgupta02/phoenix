@@ -43,6 +43,7 @@ struct Config
                 ("lot-size", po::value<double>(&lotSizeDouble)->required(), "Quote lot size")
                 ("tick-size", po::value<double>(&tickSizeDouble)->required(), "Minimum tick size")
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
+                ("aggressive", po::value<bool>(&aggressive)->default_value(aggressive), "Aggressive mode")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("fee", po::value<double>(&fee)->default_value(fee), "Fee percentage")
                 ("position-limit", po::value<double>(&positionBoundary)->default_value(positionBoundary), "One sided quote position limit")
@@ -91,6 +92,7 @@ struct Config
     VolumeType lotSize;
     PriceType tickSize;
 
+    bool aggressive = true;
     double positionBoundary = 20.0;
     bool profiled = false;
     double fee = 0.00;

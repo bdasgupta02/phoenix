@@ -58,6 +58,7 @@ struct Quoter : NodeBase
 
         auto tickSize = config->tickSize;
         auto lotSize = config->lotSize;
+        auto aggressive = config->aggressive;
 
         // > lotSize to prevent trading on my own book event
         if (bestBid < 1.0 && bestBidQty > lotSize && lastBid != bestBid)
@@ -65,9 +66,13 @@ struct Quoter : NodeBase
             auto tickSize = config->tickSize;
 
             PriceType quotePrice = bestBid;
-            PriceType aggressiveBid = bestBid + tickSize;
-            if (aggressiveBid < 1.0 && aggressiveBid < bestAsk)
-                quotePrice = aggressiveBid;
+
+            if (aggressive)
+            {
+                PriceType aggressiveBid = bestBid + tickSize;
+                if (aggressiveBid < 1.0 && aggressiveBid < bestAsk)
+                    quotePrice = aggressiveBid;
+            }
 
             SingleQuote<Traits> quote{.price = quotePrice, .volume = config->lotSize, .side = 1};
 
@@ -76,7 +81,7 @@ struct Quoter : NodeBase
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
-                handler, "Quoted bid", quote.volume.template as<double>(), '@', bestBid.template as<double>());
+                handler, "Quoted bid", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
         }
 
         if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk)
@@ -84,9 +89,13 @@ struct Quoter : NodeBase
             auto tickSize = config->tickSize;
 
             PriceType quotePrice = bestAsk;
-            PriceType aggressiveAsk = bestAsk - tickSize;
-            if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid)
-                quotePrice = aggressiveAsk;
+
+            if (aggressive)
+            {
+                PriceType aggressiveAsk = bestAsk - tickSize;
+                if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid)
+                    quotePrice = aggressiveAsk;
+            }
 
             SingleQuote<Traits> quote{.price = quotePrice, .volume = config->lotSize, .side = 2};
 
@@ -95,7 +104,7 @@ struct Quoter : NodeBase
 
             handler->invoke(tag::Stream::SendQuote{}, quote);
             STABLEARB_LOG_INFO(
-                handler, "Quoted ask", quote.volume.template as<double>(), '@', bestAsk.template as<double>());
+                handler, "Quoted ask", quote.volume.template as<double>(), '@', quotePrice.template as<double>());
         }
     }
 
