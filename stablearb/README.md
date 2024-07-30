@@ -34,11 +34,15 @@ struct Stream : NodeBase
         // To call other nodes:
         // 1. and retrieve() for functions that return something
         // 2. use invoke() for void handlers 
-        auto position = this->getHandler()->retrieve(tag::Quoter::Position{}); // calls quoter's "Position" handle() function
-        this->getHandler()->invoke(tag::Risk::Evaluate{}, position); // call's risk's "Evaluate" handle() function
+
+        // calls quoter's "Position" handle() function to get some value
+        auto position = this->getHandler()->retrieve(tag::Quoter::Position{}); 
+
+        // call's risk's "Evaluate" handle() function
+        this->getHandler()->invoke(tag::Risk::Evaluate{}, position);
     }
 
-    // Handlers can also return anything if needed 
+    // Handlers can also return anything if needed
     Status handle(tag::Stream::Status, &&...) 
     {
         // Access the app config in any node easily
