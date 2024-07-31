@@ -190,7 +190,7 @@ struct Quoter : NodeBase
             STABLEARB_LOG_WARN(
                 handler, "Order cancelled:", orderId, "with remaining quantity", remaining.template as<double>());
 
-            handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side == 1u ? 2u : 1u);
+            handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side );
         }
 
         // rejected
@@ -200,7 +200,7 @@ struct Quoter : NodeBase
             orders.erase(orderId);
             STABLEARB_LOG_ERROR(handler, "Order rejected:", orderId, "due to reason", reason);
 
-            handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side == 1u ? 2u : 1u);
+            handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
         }
     }
 

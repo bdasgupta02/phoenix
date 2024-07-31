@@ -106,7 +106,7 @@ private:
 
                 if (reader.contains("55") && reader.getStringView("55") != instrument)
                 {
-                    STABLEARB_LOG_INFO(handler, "Message received for other instrument", reader.getStringView("55"));
+                    STABLEARB_LOG_DEBUG(handler, "Message received for other instrument", reader.getStringView("55"));
                     continue;
                 };
 
@@ -166,7 +166,6 @@ private:
         auto const size = io::read_until(socket, recvBuffer, boost::regex("\\x0110=\\d+\\x01"));
         auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
         std::string_view str{data, size};
-
         FIXReader reader{str};
         STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);
         recvBuffer.consume(size);
