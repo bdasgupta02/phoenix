@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <vector>
 
 #include <immintrin.h>
@@ -162,28 +163,38 @@ private:
     {
         // previously read message
         if (recvBuffer.size() > 0u)
-            return getFirstMsgFromBuffer();
+        {
+            auto reader = getFirstMsgFromBuffer();
+            if (reader)
+                return std::move(*reader);
+        }
 
+        // guarantee of a SOH present inside buffer, but verifying just in case
         io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
-        return getFirstMsgFromBuffer();
+        auto reader = getFirstMsgFromBuffer();
+        STABLEARB_LOG_VERIFY(this->getHandler(), (reader != std::nullopt), "Invalid message from TCP stream");
+        return std::move(*reader);
     }
 
-    inline FIXReader getFirstMsgFromBuffer()
+    inline std::optional<FIXReader> getFirstMsgFromBuffer()
     {
         char const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
-        std::size_t firstMsgSize = findMsgSize(data);
-        std::string_view str{data, firstMsgSize};
+        std::int64_t firstMsgSize = findMsgSize(data);
+        if (firstMsgSize < 0)
+            return {};
+
+        std::string_view str{data, static_cast<std::size_t>(firstMsgSize)};
         FIXReader reader{str};
         STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);
         recvBuffer.consume(firstMsgSize);
-        return std::move(reader);
+        return {std::move(reader)};
     }
 
-    inline std::size_t findMsgSize(char const* data)
+    inline std::int64_t findMsgSize(char const* data)
     {
-        std::size_t firstMsgSize;
-        std::size_t const bufferSize = recvBuffer.size();
-        for (std::size_t i = 0u; i < bufferSize - 3; ++i)
+        std::int64_t firstMsgSize = -1;
+        std::int64_t const bufferSize = recvBuffer.size();
+        for (std::int64_t i = 0; i < bufferSize - 3; ++i)
         {
             if (data[i] == '1' && data[i + 1] == '0' && data[i + 2] == '=')
             {
@@ -195,7 +206,6 @@ private:
                         break;
                     }
                 }
-                break;
             }
         }
         return firstMsgSize;
