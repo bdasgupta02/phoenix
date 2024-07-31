@@ -44,7 +44,7 @@ struct FIXBuilder
     FIXBuilder(FIXBuilder const&) = default;
     FIXBuilder& operator=(FIXBuilder const&) = default;
 
-    inline void reset(std::size_t seqNum, char msgType)
+    inline void reset(std::size_t seqNum, std::string_view msgType, std::string_view client)
     {
         buffer.clear();
         staging.clear();
@@ -54,22 +54,7 @@ struct FIXBuilder
         staging.push_back({"9", ""});
 
         append("35", msgType);
-        append("49", "algo");
-        append("56", "DERIBITSERVER");
-        append("34", seqNum);
-    }
-
-    inline void reset(std::size_t seqNum, std::string_view msgType)
-    {
-        buffer.clear();
-        staging.clear();
-        size = 0u;
-
-        staging.push_back({"8", FIX_PROTOCOL});
-        staging.push_back({"9", ""});
-
-        append("35", msgType);
-        append("49", "algo");
+        append("49", client);
         append("56", "DERIBITSERVER");
         append("34", seqNum);
     }
@@ -145,6 +130,9 @@ private:
 
 struct FIXMessageBuilder
 {
+    FIXMessageBuilder(std::string_view client)
+        : client{client}
+    {}
 
     std::string_view login(std::size_t seqNum, std::string_view username, std::string_view secret, int heartbeatSeconds)
     {
@@ -169,7 +157,7 @@ struct FIXMessageBuilder
         auto const passwordSHA256 = encodeSHA256(rawAndSecret);
         auto const password = encodeBase64(passwordSHA256.data(), passwordSHA256.size());
 
-        builder.reset(seqNum, 'A');
+        builder.reset(seqNum, "A", client);
         builder.append("108", heartbeatSeconds);
         builder.append("96", rawData);
         builder.append("553", username);
@@ -183,20 +171,20 @@ struct FIXMessageBuilder
 
     inline std::string_view logout(std::size_t seqNum)
     {
-        builder.reset(seqNum, '5');
+        builder.reset(seqNum, "5", client);
         return builder.serialize();
     }
 
     inline std::string_view heartbeat(std::size_t seqNum, std::string_view testReqId)
     {
-        builder.reset(seqNum, '0');
+        builder.reset(seqNum, "0", client);
         builder.append("112", testReqId);
         return builder.serialize();
     }
 
     inline std::string_view marketDataRequestTopLevel(std::size_t seqNum, std::string_view symbol)
     {
-        builder.reset(seqNum, 'V');
+        builder.reset(seqNum, "V", client);
         builder.append("262", seqNum);
         builder.append("263", 0); // full refresh of 1 depth
         builder.append("264", 1);
@@ -210,7 +198,7 @@ struct FIXMessageBuilder
 
     inline std::string_view marketDataRequestIncremental(std::size_t seqNum, std::string_view symbol)
     {
-        builder.reset(seqNum, 'V');
+        builder.reset(seqNum, "V", client);
         builder.append("262", seqNum);
         builder.append("263", 1);
         builder.append("265", 1);
@@ -225,7 +213,7 @@ struct FIXMessageBuilder
     inline std::string_view
         newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote, bool takeProfit = false)
     {
-        builder.reset(seqNum, 'D');
+        builder.reset(seqNum, "D", client);
 
         if (takeProfit)
         {
@@ -244,7 +232,7 @@ struct FIXMessageBuilder
 
     inline std::string_view requestForPositions(std::size_t seqNum)
     {
-        builder.reset(seqNum, "AN");
+        builder.reset(seqNum, "AN", client);
         builder.append("710", seqNum);
         builder.append("724", 0);
         builder.append("263", 1);
@@ -332,6 +320,7 @@ private:
                                             "0123456789+/";
 
     FIXBuilder builder;
+    std::string client;
 };
 
 struct FIXReader

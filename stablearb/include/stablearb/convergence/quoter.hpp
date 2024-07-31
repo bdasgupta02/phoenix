@@ -47,12 +47,14 @@ struct Quoter : NodeBase
         {
             bestBid = topLevel.getDecimal<PriceType>("270", bidIdx);
             bestBidQty = topLevel.getDecimal<VolumeType>("271", bidIdx);
+            STABLEARB_LOG_VERIFY(handler, (!bestBid.error && !bestBidQty.error), "Decimal parse error");
         }
 
         if (askIdx > -1)
         {
             bestAsk = topLevel.getDecimal<PriceType>("270", askIdx);
             bestAskQty = topLevel.getDecimal<VolumeType>("271", askIdx);
+            STABLEARB_LOG_VERIFY(handler, (!bestAsk.error && !bestAskQty.error), "Decimal parse error");
         }
 
         updateIndex(topLevel);
@@ -118,12 +120,20 @@ struct Quoter : NodeBase
         auto remaining = report.getDecimal<VolumeType>("151");
         auto side = report.getNumber<unsigned int>("54");
         auto price = report.getDecimal<PriceType>("44");
-        STABLEARB_LOG_VERIFY(handler, (!price.error), "Price parse error");
+        STABLEARB_LOG_VERIFY(handler, (!price.error && !remaining.error), "Decimal parse error");
 
         // new order
         if (status == 0)
         {
-            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with", remaining.template as<double>(), '@', price.template as<double>());
+            STABLEARB_LOG_INFO(
+                handler,
+                "New order:",
+                orderId,
+                "with",
+                remaining.template as<double>(),
+                '@',
+                price.template as<double>());
+
             orders[orderId] = remaining;
             if (clOrderId.size() > 0 && clOrderId[0] != 't')
                 handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);

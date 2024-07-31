@@ -30,6 +30,7 @@ struct Stream : NodeBase
 
     Stream(auto const& config, auto& handler)
         : NodeBase{config, handler}
+        , fixBuilder(config.client)
     {
         recvBuffer.prepare(8192u);
     }

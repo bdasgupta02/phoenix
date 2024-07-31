@@ -39,6 +39,7 @@ struct Config
                 ("auth-secret", po::value<std::string>(&secret)->required(), "Deribit client secret")
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
+                ("client", po::value<std::string>(&client)->default_value(client), "Unique client name")
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
                 ("lot-size", po::value<double>(&lotSizeDouble)->required(), "Quote lot size")
                 ("tick-size", po::value<double>(&tickSizeDouble)->required(), "Minimum tick size")
@@ -82,6 +83,7 @@ struct Config
     // deribit connectivity
     std::string username;
     std::string secret;
+    std::string client;
     std::string host = "www.deribit.com"; // test.deribit.com:9881 for test net
     std::string port = "9881";
 
