@@ -197,11 +197,11 @@ private:
     {
         std::int64_t firstMsgSize = -1;
         std::int64_t const bufferSize = recvBuffer.size();
-        for (std::int64_t i = 0; i < bufferSize - 3; ++i)
+        for (std::int64_t i = 0; i < bufferSize - 4; ++i)
         {
-            if (data[i] == '1' && data[i + 1] == '0' && data[i + 2] == '=')
+            if (data[i] == '\x01' && data[i + 1] == '1' && data[i + 2] == '0' && data[i + 3] == '=')
             {
-                for (size_t j = i + 3; j < bufferSize; ++j)
+                for (std::int64_t j = i + 4; j < bufferSize; ++j)
                 {
                     if (data[j] == '\x01')
                     {
