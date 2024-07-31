@@ -166,8 +166,8 @@ private:
         if (reader)
             return std::move(*reader);
 
-        // guarantee of a SOH present inside buffer, but verifying just in case
-        io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
+        // guarantee of a checksum present inside buffer, but verifying just in case
+        io::read_until(socket, recvBuffer, boost::regex(R"(\x0110=\\d+\x01)"));
         reader = getFirstMsgFromBuffer();
         STABLEARB_LOG_VERIFY(this->getHandler(), (reader != std::nullopt), "Invalid message from TCP stream");
         return std::move(*reader);
