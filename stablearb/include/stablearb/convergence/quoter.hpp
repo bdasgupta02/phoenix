@@ -5,6 +5,7 @@
 #include "stablearb/data/quotes.hpp"
 
 #include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 // TODO: don't quote on an existing order level
 
@@ -66,7 +67,7 @@ struct Quoter : NodeBase
         auto aggressive = config->aggressive;
 
         // > lotSize to prevent trading on my own book event
-        if (bestBid < 1.0 && bestBidQty > lotSize && lastBid != bestBid)
+        if (bestBid < 1.0 && bestBidQty > lotSize && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
         {
             auto tickSize = config->tickSize;
 
@@ -76,7 +77,7 @@ struct Quoter : NodeBase
             {
                 PriceType aggressiveBid = bestBid + tickSize;
                 VolumeType doubleLotSize = lotSize + lotSize;
-                if (aggressiveBid < 1.0 && aggressiveBid < bestAsk)
+                if (aggressiveBid < 1.0 && aggressiveBid < bestAsk && !quotedLevels.contains(aggressiveBid.getValue()))
                 {
                     sendQuote({.price = aggressiveBid, .volume = lotSize, .side = 1});
                     sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 1});
@@ -88,7 +89,7 @@ struct Quoter : NodeBase
                 sendQuote({.price = quotePrice, .volume = lotSize, .side = 1});
         }
 
-        if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk)
+        if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
         {
             auto tickSize = config->tickSize;
 
@@ -98,7 +99,7 @@ struct Quoter : NodeBase
             {
                 PriceType aggressiveAsk = bestAsk - tickSize;
                 VolumeType doubleLotSize = lotSize + lotSize;
-                if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid)
+                if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid && !quotedLevels.contains(aggressiveAsk.getValue()))
                 {
                     sendQuote({.price = aggressiveAsk, .volume = lotSize, .side = 2});
                     sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 2});
@@ -167,18 +168,21 @@ struct Quoter : NodeBase
             {
                 unsigned int reversedSide = side == 1 ? 2 : 1;
                 PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
-                SingleQuote<Traits> quote{.price = reversedPrice, .volume = executed, .side = reversedSide};
+                sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide});
                 STABLEARB_LOG_INFO(
                     handler,
                     "Quoted take-profit",
                     (side == 2 ? "bid" : "ask"),
-                    reversedPrice.template as<double>(),
+                    executed.template as<double>(),
                     '@',
-                    quote.price.template as<double>());
+                    reversedPrice.template as<double>());
             }
 
             if (remaining.getValue() == 0)
+            {
                 orders.erase(orderId);
+                quotedLevels.erase(price.getValue());
+            }
             else
                 orders[orderId] = remaining;
         }
@@ -187,10 +191,11 @@ struct Quoter : NodeBase
         if (status == 4)
         {
             orders.erase(orderId);
+            quotedLevels.erase(price.getValue());
             STABLEARB_LOG_WARN(
                 handler, "Order cancelled:", orderId, "with remaining quantity", remaining.template as<double>());
 
-            handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side );
+            handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
         }
 
         // rejected
@@ -198,6 +203,7 @@ struct Quoter : NodeBase
         {
             auto reason = report.getNumber<unsigned int>("103");
             orders.erase(orderId);
+            quotedLevels.erase(price.getValue());
             STABLEARB_LOG_ERROR(handler, "Order rejected:", orderId, "due to reason", reason);
 
             handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
@@ -211,6 +217,8 @@ private:
 
         if (!handler->retrieve(tag::Risk::Check{}, quote))
             return;
+
+        quotedLevels.insert(quote.price.getValue());
 
         handler->invoke(tag::Stream::SendQuote{}, quote);
         STABLEARB_LOG_INFO(
@@ -241,6 +249,7 @@ private:
 
     // <order id, remaining volume>
     boost::unordered_flat_map<std::string, VolumeType> orders;
+    boost::unordered_flat_set<std::uint64_t> quotedLevels;
 };
 
 } // namespace stablearb
