@@ -163,9 +163,8 @@ private:
 
     inline FIXReader recvMsg()
     {
-        io::read_until(socket, recvBuffer, boost::regex("\\x0110=\\d+\\x01"));
+        auto const size = io::read_until(socket, recvBuffer, boost::regex("\\x0110=\\d+\\x01"));
         auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
-        auto const size = recvBuffer.size();
         std::string_view str{data, size};
 
         FIXReader reader{str};
