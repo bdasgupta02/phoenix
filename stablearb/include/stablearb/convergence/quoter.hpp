@@ -6,6 +6,8 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
+// TODO: don't quote on an existing order level
+
 namespace stablearb {
 
 template<typename NodeBase>
@@ -113,6 +115,7 @@ struct Quoter : NodeBase
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
+        STABLEARB_LOG_INFO(handler, "Incoming execution report");
 
         auto status = report.getNumber<unsigned int>("39");
         auto orderId = report.getString("37");
@@ -142,6 +145,17 @@ struct Quoter : NodeBase
         // partial/total fill
         if (status == 1 || status == 2)
         {
+            STABLEARB_LOG_INFO(
+                handler,
+                "Order filled:",
+                orderId,
+                "with clOrdId:",
+                clOrderId,
+                "with remaining",
+                remaining.template as<double>(),
+                '@',
+                price.template as<double>());
+
             auto tickSize = config->tickSize;
             auto lastRemaining = orders[orderId];
             auto executed = lastRemaining - remaining;
@@ -167,22 +181,15 @@ struct Quoter : NodeBase
                 orders.erase(orderId);
             else
                 orders[orderId] = remaining;
-
-            STABLEARB_LOG_INFO(
-                handler,
-                "Order filled:",
-                orderId,
-                "with remaining",
-                remaining.template as<double>(),
-                '@',
-                price.template as<double>());
         }
 
         // cancelled
         if (status == 4)
         {
             orders.erase(orderId);
-            STABLEARB_LOG_WARN(handler, "Order cancelled:", orderId);
+            STABLEARB_LOG_WARN(
+                handler, "Order cancelled:", orderId, "with remaining quantity", remaining.template as<double>());
+
             handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side == 1u ? 2u : 1u);
         }
 
@@ -192,6 +199,7 @@ struct Quoter : NodeBase
             auto reason = report.getNumber<unsigned int>("103");
             orders.erase(orderId);
             STABLEARB_LOG_ERROR(handler, "Order rejected:", orderId, "due to reason", reason);
+
             handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side == 1u ? 2u : 1u);
         }
     }

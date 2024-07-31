@@ -85,6 +85,7 @@ private:
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
+        auto const& instrument = config->instrument;
 
         STABLEARB_LOG_INFO(handler, "Starting trading pipeline");
 
@@ -92,9 +93,9 @@ private:
         {
             try
             {
-                if (!socket.available())
+                if (!socket.available() && recvBuffer.size() == 0u)
                 {
-                    auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, config->instrument);
+                    auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
                     sendMsg(mdRequest);
                 }
 
@@ -102,6 +103,9 @@ private:
                 auto reader = recvMsg();
 
                 [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
+
+                if (reader.contains("55") && reader.getStringView("55") != instrument)
+                    continue;
 
                 // test request
                 if (reader.isMessageType("1"))
@@ -146,7 +150,7 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 5);
+        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 30);
         sendMsg(msg);
         auto reader = recvMsg();
 
@@ -156,15 +160,45 @@ private:
 
     inline FIXReader recvMsg()
     {
-        io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
-        auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
-        auto const size = recvBuffer.size();
-        std::string_view str{data, size};
+        // previously read message
+        if (recvBuffer.size() > 0u)
+            return getFirstMsgFromBuffer();
 
+        io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
+        return getFirstMsgFromBuffer();
+    }
+
+    inline FIXReader getFirstMsgFromBuffer()
+    {
+        char const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
+        std::size_t firstMsgSize = findMsgSize(data);
+        std::string_view str{data, firstMsgSize};
         FIXReader reader{str};
         STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);
-        recvBuffer.consume(size);
+        recvBuffer.consume(firstMsgSize);
         return std::move(reader);
+    }
+
+    inline std::size_t findMsgSize(char const* data)
+    {
+        std::size_t firstMsgSize;
+        std::size_t const bufferSize = recvBuffer.size();
+        for (std::size_t i = 0u; i < bufferSize - 3; ++i)
+        {
+            if (data[i] == '1' && data[i + 1] == '0' && data[i + 2] == '=')
+            {
+                for (size_t j = i + 3; j < bufferSize; ++j)
+                {
+                    if (data[j] == '\x01')
+                    {
+                        firstMsgSize = j + 1;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return firstMsgSize;
     }
 
     inline void sendMsg(std::string_view msg)
