@@ -67,10 +67,8 @@ struct Quoter : NodeBase
         auto aggressive = config->aggressive;
 
         // > lotSize to prevent trading on my own book event
-        if (bestBid < 1.0 && bestBidQty > lotSize && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
+        if (bestBid < 1.0 && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
         {
-            auto tickSize = config->tickSize;
-
             PriceType quotePrice = bestBid;
 
             if (aggressive)
@@ -89,10 +87,8 @@ struct Quoter : NodeBase
                 sendQuote({.price = quotePrice, .volume = lotSize, .side = 1});
         }
 
-        if (bestAsk > 1.0 && bestAskQty > lotSize && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
+        if (bestAsk > 1.0 && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
         {
-            auto tickSize = config->tickSize;
-
             PriceType quotePrice = bestAsk;
 
             if (aggressive)
@@ -116,7 +112,6 @@ struct Quoter : NodeBase
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
-        STABLEARB_LOG_INFO(handler, "Incoming execution report");
 
         auto status = report.getNumber<unsigned int>("39");
         auto orderId = report.getString("37");
@@ -129,53 +124,24 @@ struct Quoter : NodeBase
         // new order
         if (status == 0)
         {
-            STABLEARB_LOG_INFO(
-                handler,
-                "New order:",
-                orderId,
-                "with",
-                remaining.template as<double>(),
-                '@',
-                price.template as<double>());
-
+            logOrder("[NEW ORDER]", orderId, clOrderId, side, price, remaining);
             orders[orderId] = remaining;
-            if (clOrderId.size() > 0 && clOrderId[0] != 't')
-                handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
+            handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
         }
 
         // partial/total fill
         if (status == 1 || status == 2)
         {
-            STABLEARB_LOG_INFO(
-                handler,
-                "Order filled:",
-                orderId,
-                "with clOrdId:",
-                clOrderId,
-                "with remaining",
-                remaining.template as<double>(),
-                '@',
-                price.template as<double>());
-
+            logOrder("[FILL]", orderId, clOrderId, side, price, remaining);
             auto tickSize = config->tickSize;
             auto lastRemaining = orders[orderId];
             auto executed = lastRemaining - remaining;
 
-            // if this is a take profit order, rebalance position
-            if (clOrderId.size() > 0 && clOrderId[0] == 't')
-                handler->invoke(tag::Risk::UpdatePosition{}, executed.template as<double>(), side == 1u ? 2u : 1u);
-            else if (executed > 0)
+            if (executed > 0 && clOrderId.size() > 0 && clOrderId[0] != 't')
             {
                 unsigned int reversedSide = side == 1 ? 2 : 1;
                 PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
-                sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide});
-                STABLEARB_LOG_INFO(
-                    handler,
-                    "Quoted take-profit",
-                    (side == 2 ? "bid" : "ask"),
-                    executed.template as<double>(),
-                    '@',
-                    reversedPrice.template as<double>());
+                sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
             }
 
             if (remaining.getValue() == 0)
@@ -190,27 +156,47 @@ struct Quoter : NodeBase
         // cancelled
         if (status == 4)
         {
+            logOrder("[CANCELLED]", orderId, clOrderId, side, price, remaining);
             orders.erase(orderId);
             quotedLevels.erase(price.getValue());
-            STABLEARB_LOG_WARN(
-                handler, "Order cancelled:", orderId, "with remaining quantity", remaining.template as<double>());
-
             handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
         }
 
         // rejected
         if (status == 8)
         {
-            auto reason = report.getNumber<unsigned int>("103");
+            auto reason = report.getStringView("103");
+            logOrder("[REJECTED]", orderId, clOrderId, side, price, remaining, reason);
             orders.erase(orderId);
             quotedLevels.erase(price.getValue());
-            STABLEARB_LOG_ERROR(handler, "Order rejected:", orderId, "due to reason", reason);
-
             handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
         }
     }
 
 private:
+    void logOrder(
+        std::string_view type,
+        std::string_view orderId,
+        std::string_view clOrderId,
+        unsigned int side,
+        PriceType price,
+        VolumeType volume,
+        std::string_view rejectReason = "")
+    {
+        auto* handler = this->getHandler();
+        STABLEARB_LOG_INFO(
+            handler,
+            type,
+            orderId,
+            clOrderId,
+            side == 1 ? "BID" : "ASK",
+            volume.template as<double>(),
+            '@',
+            price.template as<double>(),
+            rejectReason.empty() ? "" : "with reason",
+            rejectReason);
+    }
+
     void sendQuote(SingleQuote<Traits> quote)
     {
         auto* handler = this->getHandler();
@@ -219,12 +205,12 @@ private:
             return;
 
         quotedLevels.insert(quote.price.getValue());
-
         handler->invoke(tag::Stream::SendQuote{}, quote);
         STABLEARB_LOG_INFO(
             handler,
-            "Quoted",
-            quote.side == 1 ? "bid" : "ask",
+            "[QUOTED]",
+            quote.takeProfit ? "[TAKE PROFIT]" : "",
+            quote.side == 1 ? "BID" : "ASK",
             quote.volume.template as<double>(),
             '@',
             quote.price.template as<double>());

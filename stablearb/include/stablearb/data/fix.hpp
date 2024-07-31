@@ -210,12 +210,11 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
-    inline std::string_view
-        newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote, bool takeProfit = false)
+    inline std::string_view newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote)
     {
         builder.reset(seqNum, "D", client);
 
-        if (takeProfit)
+        if (quote.takeProfit)
         {
             std::string clOrderId = "t" + std::to_string(seqNum);
             builder.append("11", clOrderId);
