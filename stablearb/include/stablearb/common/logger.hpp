@@ -11,9 +11,11 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <optional>
 #include <string_view>
@@ -198,7 +200,7 @@ private:
 
         // clang-format off
         loggerCache
-            << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%S")
+            << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%SZ")
             << " [" 
             << logLevelString(entry.level)
             << "] "
