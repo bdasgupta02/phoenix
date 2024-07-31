@@ -110,21 +110,21 @@ struct Quoter : NodeBase
     inline void handle(tag::Quoter::ExecutionReport, FIXReader&& report)
     {
         auto* handler = this->getHandler();
+        auto* config = this->getConfig();
+
         auto status = report.getNumber<unsigned int>("39");
         auto orderId = report.getString("37");
         auto clOrderId = report.getString("41");
+        auto remaining = report.getDecimal<VolumeType>("151");
+        auto side = report.getNumber<unsigned int>("54");
+        auto price = report.getDecimal<PriceType>("44");
+        STABLEARB_LOG_VERIFY(handler, (!price.error), "Price parse error");
 
         // new order
         if (status == 0)
         {
-            auto price = report.getStringView("44");
-            auto remaining = report.getDecimal<VolumeType>("151");
-            auto side = report.getNumber<unsigned int>("54");
-
-            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with", remaining.template as<double>(), '@', price);
-
+            STABLEARB_LOG_INFO(handler, "New order:", orderId, "with", remaining.template as<double>(), '@', price.template as<double>());
             orders[orderId] = remaining;
-
             if (clOrderId.size() > 0 && clOrderId[0] != 't')
                 handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
         }
@@ -132,17 +132,8 @@ struct Quoter : NodeBase
         // partial/total fill
         if (status == 1 || status == 2)
         {
-            auto price = report.getDecimal<PriceType>("44");
-            STABLEARB_LOG_VERIFY(handler, (!price.error), "Price parse error");
-
-            auto side = report.getNumber<unsigned int>("54");
-            auto remaining = report.getDecimal<VolumeType>("151");
-            auto lastRemaining = orders[orderId];
-
-            auto* config = this->getConfig();
             auto tickSize = config->tickSize;
-
-            // take-profit order
+            auto lastRemaining = orders[orderId];
             auto executed = lastRemaining - remaining;
 
             // if this is a take profit order, rebalance position
@@ -182,15 +173,16 @@ struct Quoter : NodeBase
         {
             orders.erase(orderId);
             STABLEARB_LOG_WARN(handler, "Order cancelled:", orderId);
+            handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side == 1u ? 2u : 1u);
         }
 
         // rejected
         if (status == 8)
         {
             auto reason = report.getNumber<unsigned int>("103");
-
             orders.erase(orderId);
             STABLEARB_LOG_ERROR(handler, "Order rejected:", orderId, "due to reason", reason);
+            handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side == 1u ? 2u : 1u);
         }
     }
 
