@@ -94,7 +94,7 @@ private:
         {
             try
             {
-                if (!socket.available())
+                if (!socket.available() && !bufferContainsFullMsg())
                 {
                     auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
                     sendMsg(mdRequest);
@@ -162,16 +162,13 @@ private:
     inline FIXReader recvMsg()
     {
         // previously read message
-        if (recvBuffer.size() > 0u)
-        {
-            auto reader = getFirstMsgFromBuffer();
-            if (reader)
-                return std::move(*reader);
-        }
+        auto reader = getFirstMsgFromBuffer();
+        if (reader)
+            return std::move(*reader);
 
         // guarantee of a SOH present inside buffer, but verifying just in case
         io::read_until(socket, recvBuffer, boost::regex("10=\\d+\\x01"));
-        auto reader = getFirstMsgFromBuffer();
+        reader = getFirstMsgFromBuffer();
         STABLEARB_LOG_VERIFY(this->getHandler(), (reader != std::nullopt), "Invalid message from TCP stream");
         return std::move(*reader);
     }
@@ -188,6 +185,12 @@ private:
         STABLEARB_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);
         recvBuffer.consume(firstMsgSize);
         return {std::move(reader)};
+    }
+
+    inline bool bufferContainsFullMsg()
+    {
+        char const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
+        return findMsgSize(data) > -1;
     }
 
     inline std::int64_t findMsgSize(char const* data)
