@@ -94,7 +94,7 @@ private:
         {
             try
             {
-                if (!socket.available() && recvBuffer.size() == 0u)
+                if (!socket.available())
                 {
                     auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
                     sendMsg(mdRequest);
