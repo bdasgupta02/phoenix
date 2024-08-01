@@ -32,11 +32,7 @@ concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 // Largely unoptimized for now
 struct FIXBuilder
 {
-    FIXBuilder()
-    {
-        staging.reserve(8192u);
-        buffer.reserve(8192u);
-    }
+    FIXBuilder() = default;
 
     FIXBuilder(FIXBuilder&&) = default;
     FIXBuilder& operator=(FIXBuilder&&) = default;
@@ -49,6 +45,9 @@ struct FIXBuilder
         buffer.clear();
         staging.clear();
         size = 0u;
+
+        staging.reserve(4096u);
+        buffer.reserve(4096u);
 
         staging.push_back({"8", FIX_PROTOCOL});
         staging.push_back({"9", ""});
@@ -189,10 +188,9 @@ struct FIXMessageBuilder
         builder.append("263", 0); // full refresh of 1 depth
         builder.append("264", 1);
         builder.append("55", symbol);
-        builder.append("267", 3);
+        builder.append("267", 2);
         builder.append("269", 0);
         builder.append("269", 1);
-        builder.append("269", 3);
         return builder.serialize();
     }
 
@@ -203,10 +201,9 @@ struct FIXMessageBuilder
         builder.append("263", 1);
         builder.append("265", 1);
         builder.append("55", symbol);
-        builder.append("267", 3);
+        builder.append("267", 2);
         builder.append("269", 0);
         builder.append("269", 1);
-        builder.append("269", 3);
         return builder.serialize();
     }
 
@@ -225,6 +222,14 @@ struct FIXMessageBuilder
         builder.append("54", quote.side);
         builder.append("38", quote.volume.str());
         builder.append("44", quote.price.str());
+        builder.append("55", symbol);
+        return builder.serialize();
+    }
+
+    inline std::string_view orderCancelRequest(std::size_t seqNum, std::string_view symbol, std::string_view orderId)
+    {
+        builder.reset(seqNum, "F", client);
+        builder.append("41", orderId);
         builder.append("55", symbol);
         return builder.serialize();
     }
@@ -353,7 +358,10 @@ struct FIXReader
     template<concepts::Numerical T>
     inline T getNumber(std::string const& tag, std::size_t index = 0u)
     {
-        auto val = fields[tag][index];
+        auto val = getStringView(tag, index);
+        if (val == UNKNOWN)
+            return 0u;
+
         T result;
         std::from_chars(val.data(), val.data() + val.size(), result);
         return result;
@@ -362,13 +370,19 @@ struct FIXReader
     template<typename DecimalType>
     inline DecimalType getDecimal(std::string const& tag, std::size_t index = 0u)
     {
-        std::string_view str = getStringView(tag, index);
-        return {str};
+        auto val = getStringView(tag, index);
+        if (val == UNKNOWN)
+            return {};
+
+        return {val};
     }
 
     inline bool getBool(std::string const& tag, std::size_t index = 0u)
     {
         auto val = getStringView(tag, index);
+        if (val == UNKNOWN)
+            return false;
+
         return val == "Y" || val == "y";
     }
 

@@ -31,6 +31,7 @@ struct Config
 
             double lotSizeDouble;
             double tickSizeDouble;
+            double quoteResetThresholdDouble;
 
             // clang-format off
             desc.add_options()
@@ -43,6 +44,7 @@ struct Config
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
                 ("lot-size", po::value<double>(&lotSizeDouble)->required(), "Quote lot size")
                 ("tick-size", po::value<double>(&tickSizeDouble)->required(), "Minimum tick size")
+                ("quote-reset-threshold", po::value<double>(&quoteResetThresholdDouble)->required(), "Quote reset threshold size")
                 ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("aggressive", po::value<bool>(&aggressive)->default_value(aggressive), "Aggressive mode")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
@@ -63,6 +65,7 @@ struct Config
             }
 
             po::notify(vm);
+            quoteResetThreshold = PriceType{quoteResetThresholdDouble};
             lotSize = VolumeType{lotSizeDouble};
             tickSize = PriceType{tickSizeDouble};
 
@@ -94,6 +97,7 @@ struct Config
 
     VolumeType lotSize;
     PriceType tickSize;
+    PriceType quoteResetThreshold;
 
     bool aggressive = true;
     double positionBoundary = 20.0;

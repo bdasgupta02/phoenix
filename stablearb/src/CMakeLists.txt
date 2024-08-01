@@ -5,6 +5,7 @@ add_library(stablearb
 target_link_libraries(stablearb PUBLIC
     Boost::program_options
     Boost::unordered
+    Boost::container
     Boost::lockfree
     Boost::describe
     Boost::asio

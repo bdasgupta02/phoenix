@@ -80,6 +80,12 @@ struct Stream : NodeBase
         sendMsg(msg);
     }
 
+    inline void handle(tag::Stream::CancelQuote, std::string_view orderId)
+    {
+        auto msg = fixBuilder.orderCancelRequest(nextSeqNum, this->getConfig()->instrument, orderId);
+        sendMsg(msg);
+    }
+
 private:
     inline void startPipeline()
     {
@@ -103,6 +109,9 @@ private:
                 auto reader = recvMsg();
 
                 [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
+
+                STABLEARB_LOG_VERIFY(
+                    handler, (!reader.isMessageType("Y")), "Invalid market data request", reader.getStringView("58"));
 
                 if (reader.contains("55") && reader.getStringView("55") != instrument)
                 {

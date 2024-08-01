@@ -12,6 +12,9 @@ struct Stream
 
     struct SendQuote
     {};
+
+    struct CancelQuote
+    {};
 };
 
 struct Logger
@@ -48,10 +51,10 @@ struct Risk
 {
     struct Abort
     {};
-    
+
     struct Check
     {};
-    
+
     struct UpdatePosition
     {};
 };

@@ -27,6 +27,8 @@ template<std::uint8_t Precision>
 class Decimal
 {
 public:
+    using ValueType = std::uint64_t;
+
     Decimal() = default;
 
     Decimal(double value)
@@ -115,6 +117,7 @@ public:
     Decimal operator-(Decimal const& other) const { return {value - other.value}; }
 
     auto operator<=>(double other) { return as<double>() <=> other; }
+    auto operator<=>(std::integral auto other) { return value <=> other; }
     auto operator<=>(Decimal const&) const = default;
 
     void modify(auto&& func) { value = func(value); }

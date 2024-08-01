@@ -9,7 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -pthread -O3
 
 include(FetchContent)
 
-set(BOOST_INCLUDE_LIBRARIES log asio lockfree unordered program_options describe regex)
+set(BOOST_INCLUDE_LIBRARIES log asio lockfree unordered program_options describe regex container)
 set(BOOST_ENABLE_CMAKE ON)
 
 FetchContent_Declare(
