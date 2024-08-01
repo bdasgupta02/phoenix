@@ -179,16 +179,15 @@ struct Quoter : NodeBase
             auto executed = lastRemaining - remaining;
 
             if (clOrderId.size() > 0 && clOrderId[0] == 't')
-                pnlContractSize += static_cast<std::int64_t>(justExecuted.getValue());
+                capturedContractSize += static_cast<std::int64_t>(justExecuted.getValue());
             else if (0u < executed)
             {
                 unsigned int reversedSide = side == 1 ? 2 : 1;
                 PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
-                pnlContractSize -= static_cast<std::int64_t>(justExecuted.getValue());
                 sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
             }
 
-            STABLEARB_LOG_INFO(handler, "[PNL]", pnlContractSize);
+            STABLEARB_LOG_INFO(handler, "[CAPTURED PROFIT]", capturedContractSize);
 
             if (remaining.getValue() == 0)
             {
@@ -296,7 +295,7 @@ private:
     Bids bidsQuoted;
     Asks asksQuoted;
 
-    std::int64_t pnlContractSize = 0;
+    std::int64_t capturedContractSize = 0;
 };
 
 } // namespace stablearb
