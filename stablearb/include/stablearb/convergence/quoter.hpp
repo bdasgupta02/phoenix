@@ -47,11 +47,6 @@ struct Quoter : NodeBase
                 askIdx = i;
         }
 
-        PriceType const lastBid = bestBid;
-        PriceType const lastAsk = bestAsk;
-        VolumeType const lastBidQty = bestBidQty;
-        VolumeType const lastAskQty = bestAskQty;
-
         if (bidIdx > -1)
         {
             bestBid = topLevel.getDecimal<PriceType>("270", bidIdx);
