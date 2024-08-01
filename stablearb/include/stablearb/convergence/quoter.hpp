@@ -167,6 +167,7 @@ struct Quoter : NodeBase
             else
                 asksQuoted.insert(priceValue);
 
+            uncaptured += remaining.getValue();
             handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
         }
 
@@ -179,15 +180,17 @@ struct Quoter : NodeBase
             auto executed = lastRemaining - remaining;
 
             if (clOrderId.size() > 0 && clOrderId[0] == 't')
-                capturedContractSize += static_cast<std::int64_t>(justExecuted.getValue());
+                capturedContractSize += justExecuted.getValue();
             else if (0u < executed)
             {
+                uncaptured -= justExecuted.getValue();
                 unsigned int reversedSide = side == 1 ? 2 : 1;
                 PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
                 sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
             }
 
-            STABLEARB_LOG_INFO(handler, "[CAPTURED PROFIT]", capturedContractSize);
+            STABLEARB_LOG_INFO(handler, "[CAPTURED]", capturedContractSize);
+            STABLEARB_LOG_INFO(handler, "[UNCAPTURED]", uncaptured);
 
             if (remaining.getValue() == 0)
             {
@@ -295,7 +298,8 @@ private:
     Bids bidsQuoted;
     Asks asksQuoted;
 
-    std::int64_t capturedContractSize = 0;
+    std::uint64_t capturedContractSize = 0u;
+    std::uint64_t uncaptured = 0u;
 };
 
 } // namespace stablearb
