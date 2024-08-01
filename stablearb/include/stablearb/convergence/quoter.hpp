@@ -108,7 +108,7 @@ struct Quoter : NodeBase
         bool const aggressive = config->aggressive;
 
         // > lotSize to prevent trading on my own book event
-        if (bestBid < 1.0 && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
+        if (bestBid < 1.0 && !quotedLevels.contains(bestBid.getValue()))
         {
             if (aggressive)
             {
@@ -125,7 +125,7 @@ struct Quoter : NodeBase
                 sendQuote({.price = bestBid, .volume = lotSize, .side = 1});
         }
 
-        if (bestAsk > 1.0 && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
+        if (bestAsk > 1.0 && !quotedLevels.contains(bestAsk.getValue()))
         {
             if (aggressive)
             {
