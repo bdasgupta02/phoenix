@@ -32,7 +32,11 @@ concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_a
 // Largely unoptimized for now
 struct FIXBuilder
 {
-    FIXBuilder() = default;
+    FIXBuilder()
+    {
+        staging.reserve(4096u);
+        buffer.reserve(4096u);
+    }
 
     FIXBuilder(FIXBuilder&&) = default;
     FIXBuilder& operator=(FIXBuilder&&) = default;
@@ -45,9 +49,6 @@ struct FIXBuilder
         buffer.clear();
         staging.clear();
         size = 0u;
-
-        staging.reserve(4096u);
-        buffer.reserve(4096u);
 
         staging.push_back({"8", FIX_PROTOCOL});
         staging.push_back({"9", ""});
