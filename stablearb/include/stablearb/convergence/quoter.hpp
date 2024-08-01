@@ -35,8 +35,8 @@ struct Quoter : NodeBase
         std::int64_t bidIdx = -1u;
         std::int64_t askIdx = -1u;
 
-        auto const numUpdates = topLevel.getFieldSize("269");
-        for (auto i = 0; i < numUpdates; ++i)
+        std::size_t const numUpdates = topLevel.getFieldSize("269");
+        for (std::int64_t i = 0; i < numUpdates; ++i)
         {
             auto typeField = topLevel.getNumber<unsigned int>("269", i);
 
@@ -50,15 +50,13 @@ struct Quoter : NodeBase
         if (bidIdx > -1)
         {
             bestBid = topLevel.getDecimal<PriceType>("270", bidIdx);
-            bestBidQty = topLevel.getDecimal<VolumeType>("271", bidIdx);
-            STABLEARB_LOG_VERIFY(handler, (!bestBid.error && !bestBidQty.error), "Decimal parse error");
+            STABLEARB_LOG_VERIFY(handler, (!bestBid.error), "Decimal parse error");
         }
 
         if (askIdx > -1)
         {
             bestAsk = topLevel.getDecimal<PriceType>("270", askIdx);
-            bestAskQty = topLevel.getDecimal<VolumeType>("271", askIdx);
-            STABLEARB_LOG_VERIFY(handler, (!bestAsk.error && !bestAskQty.error), "Decimal parse error");
+            STABLEARB_LOG_VERIFY(handler, (!bestAsk.error), "Decimal parse error");
         }
 
         updateIndex(topLevel);
@@ -97,13 +95,16 @@ struct Quoter : NodeBase
                 break;
         }
 
+        PriceType const lastBid = bestBid;
+        PriceType const lastAsk = bestAsk;
+
         PriceType const tickSize = config->tickSize;
         VolumeType const lotSize = config->lotSize;
         VolumeType const doubleLotSize = lotSize + lotSize;
         bool const aggressive = config->aggressive;
 
         // > lotSize to prevent trading on my own book event
-        if (bestBid < 1.0 && !quotedLevels.contains(bestBid.getValue()))
+        if (bestBid < 1.0 && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
         {
             if (aggressive)
             {
@@ -120,7 +121,7 @@ struct Quoter : NodeBase
                 sendQuote({.price = bestBid, .volume = lotSize, .side = 1});
         }
 
-        if (bestAsk > 1.0 && !quotedLevels.contains(bestAsk.getValue()))
+        if (bestAsk > 1.0 && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
         {
             if (aggressive)
             {
@@ -282,12 +283,9 @@ private:
         }
     }
 
-    PriceType lastQuote;
     PriceType bestBid;
     PriceType bestAsk;
     PriceType index;
-    VolumeType bestBidQty;
-    VolumeType bestAskQty;
 
     // <order id, remaining volume>
     boost::unordered_flat_map<std::string, VolumeType> orders;
