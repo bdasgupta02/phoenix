@@ -309,7 +309,7 @@ private:
     Bids bidsQuoted;
     Asks asksQuoted;
 
-    std::int64_t pnlContractSize;
+    std::int64_t pnlContractSize = 0;
 };
 
 } // namespace stablearb
