@@ -24,7 +24,6 @@ struct Quoter : NodeBase
 
     using PriceValue = PriceType::ValueType;
     using Bids = boost::container::flat_set<PriceValue, std::greater<PriceValue>>;
-    ;
     using Asks = boost::container::flat_set<PriceValue, std::less<PriceValue>>;
 
     // TODO: handle case where only one side is available - now it leads to fatal
