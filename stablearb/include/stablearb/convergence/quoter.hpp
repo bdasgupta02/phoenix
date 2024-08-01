@@ -47,10 +47,10 @@ struct Quoter : NodeBase
                 askIdx = i;
         }
 
-        PriceType lastBid = bestBid;
-        PriceType lastAsk = bestAsk;
-        VolumeType lastBidQty = bestBidQty;
-        VolumeType lastAskQty = bestAskQty;
+        PriceType const lastBid = bestBid;
+        PriceType const lastAsk = bestAsk;
+        VolumeType const lastBidQty = bestBidQty;
+        VolumeType const lastAskQty = bestAskQty;
 
         if (bidIdx > -1)
         {
@@ -102,49 +102,44 @@ struct Quoter : NodeBase
                 break;
         }
 
-        auto tickSize = config->tickSize;
-        auto lotSize = config->lotSize;
-        auto aggressive = config->aggressive;
+        PriceType const tickSize = config->tickSize;
+        VolumeType const lotSize = config->lotSize;
+        VolumeType const doubleLotSize = lotSize + lotSize;
+        bool const aggressive = config->aggressive;
 
         // > lotSize to prevent trading on my own book event
         if (bestBid < 1.0 && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
         {
-            PriceType quotePrice = bestBid;
-
             if (aggressive)
             {
-                PriceType aggressiveBid = bestBid + tickSize;
-                VolumeType doubleLotSize = lotSize + lotSize;
+                PriceType const aggressiveBid = bestBid + tickSize;
                 if (aggressiveBid < 1.0 && aggressiveBid < bestAsk && !quotedLevels.contains(aggressiveBid.getValue()))
                 {
                     sendQuote({.price = aggressiveBid, .volume = lotSize, .side = 1});
-                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 1});
+                    sendQuote({.price = bestBid, .volume = doubleLotSize, .side = 1});
                 }
                 else
-                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 1});
+                    sendQuote({.price = bestBid, .volume = doubleLotSize, .side = 1});
             }
             else
-                sendQuote({.price = quotePrice, .volume = lotSize, .side = 1});
+                sendQuote({.price = bestBid, .volume = lotSize, .side = 1});
         }
 
         if (bestAsk > 1.0 && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
         {
-            PriceType quotePrice = bestAsk;
-
             if (aggressive)
             {
-                PriceType aggressiveAsk = bestAsk - tickSize;
-                VolumeType doubleLotSize = lotSize + lotSize;
+                PriceType const aggressiveAsk = bestAsk - tickSize;
                 if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid && !quotedLevels.contains(aggressiveAsk.getValue()))
                 {
                     sendQuote({.price = aggressiveAsk, .volume = lotSize, .side = 2});
-                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 2});
+                    sendQuote({.price = bestAsk, .volume = doubleLotSize, .side = 2});
                 }
                 else
-                    sendQuote({.price = quotePrice, .volume = doubleLotSize, .side = 2});
+                    sendQuote({.price = bestAsk, .volume = doubleLotSize, .side = 2});
             }
             else
-                sendQuote({.price = quotePrice, .volume = lotSize, .side = 2});
+                sendQuote({.price = bestAsk, .volume = lotSize, .side = 2});
         }
     }
 
