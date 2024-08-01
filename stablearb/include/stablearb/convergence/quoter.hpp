@@ -35,6 +35,9 @@ struct Quoter : NodeBase
         std::int64_t bidIdx = -1u;
         std::int64_t askIdx = -1u;
 
+        PriceType const lastBid = bestBid;
+        PriceType const lastAsk = bestAsk;
+
         std::size_t const numUpdates = topLevel.getFieldSize("269");
         for (std::int64_t i = 0; i < numUpdates; ++i)
         {
@@ -94,9 +97,6 @@ struct Quoter : NodeBase
             else
                 break;
         }
-
-        PriceType const lastBid = bestBid;
-        PriceType const lastAsk = bestAsk;
 
         PriceType const tickSize = config->tickSize;
         VolumeType const lotSize = config->lotSize;
