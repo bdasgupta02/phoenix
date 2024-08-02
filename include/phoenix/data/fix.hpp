@@ -29,14 +29,11 @@ template<typename T>
 concept Numerical = (std::integral<T> || std::floating_point<T>) && !std::same_as<T, char> && !std::same_as<T, bool>;
 }
 
-// Largely unoptimized for now
+// Zero allocations after construction
+// This will only be constructed on startup if FIXMessageBuilder is used
 struct FIXBuilder
 {
-    FIXBuilder()
-    {
-        staging.reserve(4096u);
-        buffer.reserve(4096u);
-    }
+    FIXBuilder() { bodyBuffer.reserve(4096u); }
 
     FIXBuilder(FIXBuilder&&) = default;
     FIXBuilder& operator=(FIXBuilder&&) = default;
@@ -46,12 +43,9 @@ struct FIXBuilder
 
     inline void reset(std::size_t seqNum, std::string_view msgType, std::string_view client)
     {
-        buffer.clear();
-        staging.clear();
+        bodyBuffer.clear();
+        bodyBuffer.resize(HEADER_BUFFER_SIZE);
         size = 0u;
-
-        staging.push_back({"8", FIX_PROTOCOL});
-        staging.push_back({"9", ""});
 
         append("35", msgType);
         append("49", client);
@@ -61,47 +55,104 @@ struct FIXBuilder
 
     inline void append(std::string_view tag, std::string_view value)
     {
-        size += tag.size() + value.size() + 2u;
-        staging.push_back({std::string{tag}, std::string{value}});
+        bodyBuffer.insert(bodyBuffer.end(), tag.begin(), tag.end());
+        bodyBuffer.push_back('=');
+        bodyBuffer.insert(bodyBuffer.end(), value.begin(), value.end());
+        bodyBuffer.push_back(FIX_FIELD_DELIMITER);
+
+        size += tag.size() + value.size() + 2;
+    }
+
+    inline void append(std::string_view tag, char const* value)
+    {
+        bodyBuffer.insert(bodyBuffer.end(), tag.begin(), tag.end());
+        bodyBuffer.push_back('=');
+
+        for (std::size_t i = 0u; value[i] != '\0'; ++i)
+        {
+            bodyBuffer.push_back(value[i]);
+            ++size;
+        }
+
+        bodyBuffer.push_back(FIX_FIELD_DELIMITER);
+        size += tag.size() + 2;
+    }
+
+    inline void append(std::string_view tag, char value)
+    {
+        bodyBuffer.insert(bodyBuffer.end(), tag.begin(), tag.end());
+        bodyBuffer.push_back('=');
+        bodyBuffer.push_back(value);
+        bodyBuffer.push_back(FIX_FIELD_DELIMITER);
+
+        size += tag.size() + 3;
+    }
+
+    inline void append(std::string_view tag, bool value)
+    {
+        bodyBuffer.insert(bodyBuffer.end(), tag.begin(), tag.end());
+        bodyBuffer.push_back('=');
+        bodyBuffer.push_back(value ? 'Y' : 'N');
+        bodyBuffer.push_back(FIX_FIELD_DELIMITER);
+
+        size += tag.size() + 3;
     }
 
     inline void append(std::string_view tag, concepts::Numerical auto value)
     {
-        static char convBuffer[64];
-        static char* ptr;
-        ptr = convBuffer;
+        bodyBuffer.insert(bodyBuffer.end(), tag.begin(), tag.end());
+        bodyBuffer.push_back('=');
 
-        auto const result = std::to_chars(ptr, ptr + sizeof(convBuffer), value);
-        std::string_view str(ptr, result.ptr - ptr);
+        char* ptr = numberBuffer;
+        auto result = std::to_chars(ptr, ptr + sizeof(numberBuffer), value);
+        bodyBuffer.insert(bodyBuffer.end(), ptr, result.ptr);
 
-        append(tag, str);
+        bodyBuffer.push_back(FIX_FIELD_DELIMITER);
+
+        size += tag.size() + (result.ptr - ptr) + 2;
     }
-
-    inline void append(std::string_view tag, bool value) { append(std::string{tag}, std::string{value ? "Y" : "N"}); }
-    inline void append(std::string_view tag, char value) { append(std::string{tag}, std::string{&value, 1u}); }
-    inline void append(std::string_view tag, char const* value) { append(std::string{tag}, std::string{value}); }
 
     inline std::string_view serialize()
     {
-        std::string lengthStr = std::to_string(size);
-        staging[1] = {"9", lengthStr};
+        // protocol field
+        char* headerStart = headerBuffer;
+        char* ptr = headerStart;
 
-        for (auto [tag, val] : staging)
+        auto const addCharToHeader = [&ptr](char c) { *ptr++ = c; };
+
+        addCharToHeader('8');
+        addCharToHeader('=');
+        for (std::size_t i = 0; i < sizeof(FIX_PROTOCOL) - 1; ++i)
+            addCharToHeader(FIX_PROTOCOL[i]);
+
+        addCharToHeader(FIX_FIELD_DELIMITER);
+
+        // length field
+        addCharToHeader('9');
+        addCharToHeader('=');
+        auto result = std::to_chars(ptr, ptr + (sizeof(headerBuffer) - (ptr - headerStart)), size);
+        ptr += result.ptr - ptr;
+        addCharToHeader(FIX_FIELD_DELIMITER);
+
+        std::size_t const totalHeaderLength = ptr - headerStart;
+
+        // add header to bodyBuffer directly
+        std::size_t const bufferHeaderStart = HEADER_BUFFER_SIZE - totalHeaderLength;
+        for (std::size_t i = 0; i < totalHeaderLength; ++i)
         {
-            buffer.insert(buffer.end(), tag.begin(), tag.end());
-            buffer.push_back('=');
-            buffer.insert(buffer.end(), val.begin(), val.end());
-            buffer.push_back(FIX_FIELD_DELIMITER);
+            std::size_t const bufferIdx = i + bufferHeaderStart;
+            bodyBuffer[bufferIdx] = headerBuffer[i];
         }
 
+        // checksum
         std::string_view checksum = calculateChecksum();
-        buffer.push_back('1');
-        buffer.push_back('0');
-        buffer.push_back('=');
-        buffer.insert(buffer.end(), checksum.begin(), checksum.end());
-        buffer.push_back(FIX_FIELD_DELIMITER);
+        bodyBuffer.push_back('1');
+        bodyBuffer.push_back('0');
+        bodyBuffer.push_back('=');
+        bodyBuffer.insert(bodyBuffer.end(), checksum.begin(), checksum.end());
+        bodyBuffer.push_back(FIX_FIELD_DELIMITER);
 
-        return {buffer.data(), buffer.size()};
+        return {&bodyBuffer[bufferHeaderStart], bodyBuffer.size() - bufferHeaderStart};
     }
 
     static constexpr char FIX_FIELD_DELIMITER = '\x01';
@@ -112,20 +163,25 @@ private:
     std::string_view calculateChecksum()
     {
         unsigned int checksum = 0;
-        auto size = buffer.size();
-        for (std::size_t i = 0u; i < size; ++i)
-            checksum += static_cast<unsigned char>(buffer[i]);
+        std::size_t const bodyEnd = bodyBuffer.size();
+        for (std::size_t i = HEADER_BUFFER_SIZE; i < bodyEnd; ++i)
+            checksum += static_cast<unsigned char>(bodyBuffer[i]);
 
         checksum %= 256;
-
-        static char checksumStr[4];
-        std::snprintf(checksumStr, sizeof(checksumStr), "%03d", checksum);
-        return {checksumStr, 3};
+        std::snprintf(checksumBuffer, sizeof(checksumBuffer), "%03d", checksum);
+        return {checksumBuffer, 3};
     }
 
-    std::vector<std::pair<std::string, std::string>> staging;
-    std::vector<char> buffer;
+    char checksumBuffer[4];
+
+    // header
+    static constexpr std::uint64_t HEADER_BUFFER_SIZE = 32u; // 32 bytes reserved for header
+    char headerBuffer[HEADER_BUFFER_SIZE];
+
+    // body
+    char numberBuffer[32];
     std::size_t size = 0u;
+    std::vector<char> bodyBuffer;
 };
 
 struct FIXMessageBuilder
