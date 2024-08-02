@@ -64,39 +64,41 @@ struct Quoter : NodeBase
 
         updateIndex(topLevel);
 
-        for (auto price : bidsQuoted)
-        {
-            if (bestBid - config->quoteResetThreshold > PriceType{price})
-            {
-                handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
-                PHOENIX_LOG_INFO(
-                    handler,
-                    "[RESET]",
-                    "BID",
-                    PriceType{price}.template as<double>(),
-                    "with best bid",
-                    bestBid.template as<double>());
-            }
-            else
-                break;
-        }
+        // TODO: check if these aren't take profits
+        // TODO: make bids/asksQuoted a BST instead
+        // for (auto [price, _] : bidsQuoted)
+        // {
+        //     if (bestBid - config->quoteResetThreshold > price)
+        //     {
+        //         handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
+        //         PHOENIX_LOG_INFO(
+        //             handler,
+        //             "[RESET]",
+        //             "BID",
+        //             PriceType{price}.template as<double>(),
+        //             "with best bid",
+        //             bestBid.template as<double>());
+        //     }
+        //     else
+        //         break;
+        // }
 
-        for (auto price : asksQuoted)
-        {
-            if (bestAsk + config->quoteResetThreshold < PriceType{price})
-            {
-                handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
-                PHOENIX_LOG_INFO(
-                    handler,
-                    "[RESET]",
-                    "ASK",
-                    PriceType{price}.template as<double>(),
-                    "with best ask",
-                    bestAsk.template as<double>());
-            }
-            else
-                break;
-        }
+        // for (auto [price, _] : asksQuoted)
+        // {
+        //     if (bestAsk + config->quoteResetThreshold < price)
+        //     {
+        //         handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
+        //         PHOENIX_LOG_INFO(
+        //             handler,
+        //             "[RESET]",
+        //             "ASK",
+        //             PriceType{price}.template as<double>(),
+        //             "with best ask",
+        //             bestAsk.template as<double>());
+        //     }
+        //     else
+        //         break;
+        // }
 
         PriceType const tickSize = config->tickSize;
         VolumeType const lotSize = config->lotSize;
@@ -164,10 +166,13 @@ struct Quoter : NodeBase
             orders[orderId] = remaining;
             quotedLevels[priceValue] = orderId;
 
-            if (side == 1)
-                bidsQuoted.insert(priceValue);
-            else
-                asksQuoted.insert(priceValue);
+            if (clOrderId.size() > 0 && clOrderId[0] != 't')
+            {
+                if (side == 1)
+                    bidsQuoted.insert(priceValue);
+                else
+                    asksQuoted.insert(priceValue);
+            }
 
             handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
         }
@@ -181,10 +186,7 @@ struct Quoter : NodeBase
             auto executed = lastRemaining - remaining;
 
             if (clOrderId.size() > 0 && clOrderId[0] == 't')
-            {
                 takeProfitFilled += justExecuted.getValue();
-                baseFilled -= justExecuted.getValue();
-            }
             else if (0u < executed)
             {
                 baseFilled += justExecuted.getValue();
@@ -193,8 +195,7 @@ struct Quoter : NodeBase
                 sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
             }
 
-            PHOENIX_LOG_INFO(handler, "[EDGE CAPTURED]", takeProfitFilled);
-            PHOENIX_LOG_INFO(handler, "[EXPOSURE]", baseFilled);
+            PHOENIX_LOG_INFO(handler, "[EDGE CAPTURED]", takeProfitFilled, "[BASE FILLS]", baseFilled, "[EXPOSURE]", (baseFilled - takeProfitFilled));
 
             if (remaining.getValue() == 0)
             {
