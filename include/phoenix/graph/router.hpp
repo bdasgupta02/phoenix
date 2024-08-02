@@ -60,7 +60,7 @@ Node& getNode(Router<Traits, NodeList<Nodes...>>& graph)
 // Nodes should be descending order in priority
 // Statically checks if the called functions are implemented
 // Can be simplified a bit more imo
-// Note: retrieval functions can return lval or ptr, and are zero-copy
+// Note: retrieval functions can return lval or ptr
 template<typename Traits, template<typename> class... Nodes>
 struct Router<Traits, NodeList<Nodes...>>
     : public RouterHandler<Router<Traits, NodeList<Nodes...>>>
