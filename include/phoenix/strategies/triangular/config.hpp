@@ -1,10 +1,9 @@
-#pragma once
-
 #include "phoenix/enums/log_level.hpp"
 
 #include <boost/describe/enum_from_string.hpp>
 #include <boost/describe/enum_to_string.hpp>
 #include <boost/program_options.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include <cstdint>
 #include <iostream>
@@ -15,23 +14,16 @@ namespace {
 namespace po = boost::program_options;
 }
 
-namespace phoenix::convergence {
+namespace phoenix::triangular {
 
 template<typename Traits>
 struct Config
 {
-    using PriceType = Traits::PriceType;
-    using VolumeType = Traits::VolumeType;
-
     bool apply(int argc, char* argv[])
     {
         try
         {
             po::options_description desc("Config");
-
-            double lotSizeDouble;
-            double tickSizeDouble;
-            double quoteResetThresholdDouble;
 
             // clang-format off
             desc.add_options()
@@ -41,17 +33,11 @@ struct Config
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
                 ("client", po::value<std::string>(&client)->default_value(client), "Unique client name")
-                ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
-                ("lot-size", po::value<double>(&lotSizeDouble)->required(), "Quote lot size")
-                ("tick-size", po::value<double>(&tickSizeDouble)->required(), "Minimum tick size")
-                ("quote-reset-threshold", po::value<double>(&quoteResetThresholdDouble)->required(), "Quote reset threshold size")
-                ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
-                ("aggressive", po::value<bool>(&aggressive)->default_value(aggressive), "Aggressive mode")
-                ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
-                ("position-limit", po::value<double>(&positionBoundary)->default_value(positionBoundary), "One sided quote position limit")
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
                 ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
+                ("instrument", po::value<std::vector<std::string>>(&instrumentList)->required(), "List of instruments (should be 3)")
+                ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
             ;
             // clang-format on
 
@@ -65,9 +51,12 @@ struct Config
             }
 
             po::notify(vm);
-            quoteResetThreshold = PriceType{quoteResetThresholdDouble};
-            lotSize = VolumeType{lotSizeDouble};
-            tickSize = PriceType{tickSizeDouble};
+            assert(instrumentList.size() == 3);
+            for (auto const& e : instrumentList)
+            {
+                instrumentSet.insert(e);
+                instrument.append(e);
+            }
 
             return true;
         }
@@ -90,22 +79,16 @@ struct Config
     std::string host = "www.deribit.com"; // test.deribit.com:9881 for test net
     std::string port = "9881";
 
-    // app
-    std::string instrument;
-    std::string kind;
-
     // logging
     std::string logFolder;
     LogLevel logLevel = LogLevel::INFO;
     bool printLogs = false;
+    std::string instrument; // for logging
 
-    VolumeType lotSize;
-    PriceType tickSize;
-    PriceType quoteResetThreshold;
+    std::vector<std::string> instrumentList;
+    boost::unordered_flat_set<std::string> instrumentSet;
 
-    bool aggressive = true;
-    double positionBoundary = 20.0;
     bool profiled = false;
 };
 
-} // namespace phoenix
+} // namespace phoenix::triangular

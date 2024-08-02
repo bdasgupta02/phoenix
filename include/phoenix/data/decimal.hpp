@@ -29,17 +29,17 @@ class Decimal
 public:
     using ValueType = std::uint64_t;
 
-    Decimal() = default;
+    constexpr Decimal() = default;
 
-    Decimal(double value)
+    constexpr Decimal(double value)
         : value(std::round(value * multiplier))
     {}
 
-    Decimal(std::uint64_t value)
+    constexpr Decimal(std::uint64_t value)
         : value(value)
     {}
 
-    Decimal(std::string_view str)
+    constexpr Decimal(std::string_view str)
     {
         bool seenDecimal = false;
         std::uint64_t integerPart = 0;
@@ -76,6 +76,16 @@ public:
             fractionalPart *= static_cast<std::uint64_t>(std::pow(10, Precision - fractionalDigits));
 
         value = (integerPart * multiplier) + fractionalPart;
+    }
+
+    // must be null terminated
+    constexpr Decimal(char const* ptr)
+    {
+        std::size_t nullIdx = 0u;
+        while (*ptr != '\0')
+            ++ptr;
+
+        *this = Decimal{std::string_view{ptr, nullIdx}};
     }
 
     Decimal(Decimal&&) = default;

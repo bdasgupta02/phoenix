@@ -47,6 +47,15 @@ struct Quoter
     {};
 };
 
+struct Hitter
+{
+    struct Hit
+    {};
+
+    struct ExecutionReport
+    {};
+};
+
 struct Risk
 {
     struct Abort

@@ -15,7 +15,11 @@
 
 #include <immintrin.h>
 
-namespace phoenix {
+namespace {
+namespace io = ::boost::asio;
+} // namespace
+
+namespace phoenix::triangular {
 
 // risk:
 // all orders are fill or kill
@@ -32,7 +36,6 @@ template<typename NodeBase>
 struct Stream : NodeBase
 {
     using Traits = NodeBase::Traits;
-    using PriceType = NodeBase::Traits::PriceType;
 
     Stream(auto const& config, auto& handler)
         : NodeBase{config, handler}
@@ -49,7 +52,7 @@ struct Stream : NodeBase
         auto* handler = this->getHandler();
         PHOENIX_LOG_INFO(handler, "Stopping stream");
         isRunning = false;
-        sendMsg(fixBuilder.logout(nextSeqNum));
+        trySendMsg(fixBuilder.logout(nextSeqNum));
 
         boost::system::error_code ec;
         socket.close(ec);
@@ -85,22 +88,25 @@ private:
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
-        auto const& instrument = config->instrument;
+
+        auto const& instrumentList = config->instrumentList;
+        auto const& instrumentSet = config->instrumentSet;
 
         PHOENIX_LOG_INFO(handler, "Starting trading pipeline");
 
-        subscribe(instrument);
+        for (auto const& instrument : instrumentList)
+            subscribe(instrument);
 
         while (isRunning)
         {
             try
             {
-                reader = recvMsg();
+                auto reader = recvMsg();
 
                 [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
 
-                auto recvInstrument = reader.getStringView("55");
-                if (recvInstrument != FIXReader::UNKNOWN && recvInstrument != instrument)
+                auto const& recvInstrument = reader.getString("55");
+                if (recvInstrument != FIXReader::UNKNOWN && !instrumentSet.contains(recvInstrument))
                 {
                     PHOENIX_LOG_DEBUG(handler, "Message received for other instrument", reader.getStringView("55"));
                     continue;
@@ -116,7 +122,7 @@ private:
                 // market data update
                 if (reader.isMessageType("W"))
                 {
-                    handler->invoke(tag::Hitter::Quote{}, std::move(reader), nextSeqNum);
+                    handler->invoke(tag::Hitter::Hit{}, std::move(reader));
                     continue;
                 }
 
@@ -146,9 +152,10 @@ private:
 
     void subscribe(std::string_view instrument)
     {
-        auto mdRequest = fixBuilder.marketDataRequestIncremental(nextSeqNum, instrument);
-        while (!trySendMsg(msg))
+        std::string_view const mdRequest = fixBuilder.marketDataRequestIncremental(nextSeqNum, instrument);
+        while (!trySendMsg(mdRequest))
             _mm_pause();
+
         auto reader = recvMsg();
         PHOENIX_LOG_VERIFY(
             this->getHandler(),
@@ -217,4 +224,4 @@ private:
     std::uint64_t msgCountInterval = 0u;
 };
 
-} // namespace phoenix
+} // namespace phoenix::triangular

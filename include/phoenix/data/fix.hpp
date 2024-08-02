@@ -63,6 +63,7 @@ struct FIXBuilder
         size += tag.size() + value.size() + 2;
     }
 
+    // Node: requires null terminated string
     inline void append(std::string_view tag, char const* value)
     {
         bodyBuffer.insert(bodyBuffer.end(), tag.begin(), tag.end());
@@ -400,7 +401,7 @@ struct FIXReader
     FIXReader(FIXReader&) = delete;
     FIXReader& operator=(FIXReader&) = delete;
 
-    inline std::string getString(std::string const& tag, std::size_t index = 0u)
+    inline std::string const& getString(std::string const& tag, std::size_t index = 0u)
     {
         auto it = fields.find(tag);
         if (it != fields.end())

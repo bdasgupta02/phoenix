@@ -19,7 +19,7 @@ namespace {
 namespace io = ::boost::asio;
 } // namespace
 
-namespace phoenix {
+namespace phoenix::convergence {
 
 // Single-threaded TCP stream for Deribit with FIX, specifically for convergence where liquidity is low
 template<typename NodeBase>
@@ -145,7 +145,7 @@ private:
                 // market data update
                 if (reader.isMessageType("W"))
                 {
-                    handler->invoke(tag::Quoter::Quote{}, std::move(reader), nextSeqNum);
+                    handler->invoke(tag::Quoter::Quote{}, std::move(reader));
                     continue;
                 }
             }
@@ -212,4 +212,4 @@ private:
     std::chrono::milliseconds const interval{200u};
 };
 
-} // namespace phoenix
+} // namespace phoenix::convergence

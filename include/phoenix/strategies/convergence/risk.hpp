@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace phoenix {
+namespace phoenix::convergence {
 
 template<typename NodeBase>
 struct Risk : NodeBase

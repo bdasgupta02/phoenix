@@ -11,7 +11,7 @@
 #include <functional>
 #include <vector>
 
-namespace phoenix {
+namespace phoenix::convergence {
 
 template<typename NodeBase>
 struct Quoter : NodeBase
@@ -27,7 +27,7 @@ struct Quoter : NodeBase
     using Asks = boost::container::flat_set<PriceValue, std::less<PriceValue>>;
 
     // TODO: handle case where only one side is available - now it leads to fatal
-    inline void handle(tag::Quoter::Quote, FIXReader&& topLevel, std::size_t seqNum)
+    inline void handle(tag::Quoter::Quote, FIXReader&& topLevel)
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
@@ -149,8 +149,8 @@ struct Quoter : NodeBase
         auto* config = this->getConfig();
 
         auto status = report.getNumber<unsigned int>("39");
-        auto orderId = report.getString("11");
-        auto clOrderId = report.getString("41");
+        auto const& orderId = report.getString("11");
+        auto const& clOrderId = report.getString("41");
         auto remaining = report.getDecimal<VolumeType>("151");
         auto justExecuted = report.getDecimal<VolumeType>("14");
         auto side = report.getNumber<unsigned int>("54");
@@ -195,7 +195,14 @@ struct Quoter : NodeBase
                 sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
             }
 
-            PHOENIX_LOG_INFO(handler, "[EDGE CAPTURED]", takeProfitFilled, "[BASE FILLS]", baseFilled, "[EXPOSURE]", (baseFilled - takeProfitFilled));
+            PHOENIX_LOG_INFO(
+                handler,
+                "[EDGE CAPTURED]",
+                takeProfitFilled,
+                "[BASE FILLS]",
+                baseFilled,
+                "[EXPOSURE]",
+                (baseFilled - takeProfitFilled));
 
             if (remaining.getValue() == 0)
             {

@@ -9,6 +9,7 @@
 #include "phoenix/tags.hpp"
 
 using namespace phoenix;
+using namespace phoenix::convergence;
 
 struct Traits
 {
@@ -18,6 +19,7 @@ struct Traits
 
 // clang-format off
 using Graph = Router<
+    Config<Traits>,
     Traits,
     NodeList<
         Risk,

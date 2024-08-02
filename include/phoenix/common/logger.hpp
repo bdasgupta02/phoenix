@@ -80,7 +80,7 @@ struct Logger : NodeBase
         ss << config->logFolder;
         ss << '/';
         ss << config->instrument << "-";
-        ss << std::put_time(std::gmtime(&inTimeT), "%Y%m%d-%H%M%S");
+        ss << std::put_time(std::gmtime(&inTimeT), "%Y-%m-%dT%H:%M:%SZ");
         ss << ".log";
 
         logPath = ss.str();
