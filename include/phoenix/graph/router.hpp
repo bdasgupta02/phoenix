@@ -89,7 +89,7 @@ private:
     inline auto retrieveImpl(Tag tag, Args&&... args)
     {
         static_assert(
-            (concepts::HasReturnHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> ^ ...) == 1,
+            (concepts::HasReturnHandler<Nodes<NodeBase<Traits, Router>>, Tag, Router, Args...> + ...) == 1,
             "Exactly one node should have this handler");
 
         return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...))>(
