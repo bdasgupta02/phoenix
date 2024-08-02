@@ -66,7 +66,7 @@ struct Quoter : NodeBase
 
         for (auto price : bidsQuoted)
         {
-            if (bestBid - config->quoteResetThreshold > price)
+            if (bestBid - config->quoteResetThreshold > PriceType{price})
             {
                 handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
                 PHOENIX_LOG_INFO(
@@ -83,7 +83,7 @@ struct Quoter : NodeBase
 
         for (auto price : asksQuoted)
         {
-            if (bestAsk + config->quoteResetThreshold < price)
+            if (bestAsk + config->quoteResetThreshold < PriceType{price})
             {
                 handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
                 PHOENIX_LOG_INFO(
@@ -109,7 +109,8 @@ struct Quoter : NodeBase
             if (aggressive)
             {
                 PriceType const aggressiveBid = bestBid + tickSize;
-                if (aggressiveBid < 1.0 && aggressiveBid < bestAsk && !quotedLevels.contains(aggressiveBid.getValue()))
+                if (aggressiveBid < 1.0 && aggressiveBid < bestAsk && aggressiveBid < bestAsk &&
+                    !quotedLevels.contains(aggressiveBid.getValue()))
                 {
                     sendQuote({.price = aggressiveBid, .volume = lotSize, .side = 1});
                     sendQuote({.price = bestBid, .volume = doubleLotSize, .side = 1});
@@ -126,7 +127,8 @@ struct Quoter : NodeBase
             if (aggressive)
             {
                 PriceType const aggressiveAsk = bestAsk - tickSize;
-                if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid && !quotedLevels.contains(aggressiveAsk.getValue()))
+                if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid && aggressiveAsk > bestBid &&
+                    !quotedLevels.contains(aggressiveAsk.getValue()))
                 {
                     sendQuote({.price = aggressiveAsk, .volume = lotSize, .side = 2});
                     sendQuote({.price = bestAsk, .volume = doubleLotSize, .side = 2});
@@ -181,10 +183,11 @@ struct Quoter : NodeBase
             if (clOrderId.size() > 0 && clOrderId[0] == 't')
             {
                 takeProfitFilled += justExecuted.getValue();
-                baseFilled += justExecuted.getValue();
+                baseFilled -= justExecuted.getValue();
             }
             else if (0u < executed)
             {
+                baseFilled += justExecuted.getValue();
                 unsigned int reversedSide = side == 1 ? 2 : 1;
                 PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
                 sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});

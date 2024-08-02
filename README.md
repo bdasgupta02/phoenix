@@ -6,7 +6,7 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - Arbitrage based market-making with a bias towards a price of 1 - but most advantage is lost by running over the internet.
 - e.g. USDC/USDT, STETH/ETH
 
-### Matching across multiple books for equivalent coins
+### Triangular arbitrage multiple books for equivalent coins
 - High-frequency taker orders to instantly fill spreads across 2 books for the same coin.
 - e.g. BTC/USDC vs BTC/USDT
 
