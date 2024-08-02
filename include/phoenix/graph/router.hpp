@@ -2,7 +2,6 @@
 
 #include "phoenix/graph/node_base.hpp"
 #include "phoenix/graph/router_handler.hpp"
-#include "phoenix/strategies/convergence/config.hpp"
 
 #include <memory>
 #include <type_traits>
@@ -66,7 +65,7 @@ struct Router<Traits, NodeList<Nodes...>>
     : public RouterHandler<Router<Traits, NodeList<Nodes...>>>
     , public Nodes<NodeBase<Traits, Router<Traits, NodeList<Nodes...>>>>...
 {
-    Router(Config<Traits> const& config)
+    Router(auto const& config)
         : Nodes<NodeBase<Traits, Router>>(config, static_cast<RouterHandler<Router>&>(*this))...
     {}
 

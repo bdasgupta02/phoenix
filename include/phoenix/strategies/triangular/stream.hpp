@@ -26,6 +26,8 @@ namespace phoenix {
 // 200ms is a big risk
 // rather use a 4 burst, so throttle 500ms (under 5/s limit and 20 burst)
 
+// send 3 order messages at once (v2 with OVH)
+
 template<typename NodeBase>
 struct Stream : NodeBase
 {
