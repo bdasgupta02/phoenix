@@ -77,6 +77,7 @@ using Graph = Router<
         Risk,
         Stream,
         Quoter,
+        Logger,
         ...
     >
 >;

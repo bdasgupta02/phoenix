@@ -268,10 +268,14 @@ struct FIXMessageBuilder
     {
         builder.reset(seqNum, "D", client);
 
+        char* seqPtr = seqNumBuffer;
+        auto const addToSeqBuffer = [&seqPtr](char c) { *seqPtr++ = c; };
         if (quote.takeProfit)
         {
-            std::string clOrderId = "t" + std::to_string(seqNum);
-            builder.append("11", clOrderId);
+            addToSeqBuffer('t');
+            auto result = std::to_chars(seqPtr, seqPtr + sizeof(seqNumBuffer), seqNum);
+            *result.ptr = '\0';
+            builder.append("11", seqNumBuffer);
         }
         else
             builder.append("11", seqNum);
@@ -379,6 +383,8 @@ private:
     static constexpr char BASE_64_CHARS[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                             "abcdefghijklmnopqrstuvwxyz"
                                             "0123456789+/";
+
+    char seqNumBuffer[32] = {'\0'};
 
     FIXBuilder builder;
     std::string client;
