@@ -101,12 +101,11 @@ struct Stream : NodeBase
         if (!trySendMsg(msg))
             return;
 
-        // if first order is made, the next 2 should be made too, to reduce risk
-
+        // if first order is made, the next 2 should be too, to reduce risk
         msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], second);
         forceSendMsg(msg);
 
-        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], second);
+        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], third);
         forceSendMsg(msg);
     }
 
@@ -220,6 +219,7 @@ private:
         PHOENIX_LOG_INFO(handler, "Login successful");
     }
 
+    [[gnu::hot, gnu::always_inline]]
     inline FIXReader recvMsg()
     {
         auto const size = io::read_until(socket, recvBuffer, boost::regex("\\x0110=\\d+\\x01"));
@@ -231,6 +231,7 @@ private:
         return std::move(reader);
     }
 
+    [[gnu::hot, gnu::always_inline]]
     inline void forceSendMsg(std::string_view msg)
     {
         while (!trySendMsg(msg))
@@ -238,6 +239,7 @@ private:
     }
 
     // non-blocking for throttler, preventing waiting for next window with stale orders
+    [[gnu::hot, gnu::always_inline]]
     inline bool trySendMsg(std::string_view msg)
     {
         auto nextAllowed = lastSent + interval;
