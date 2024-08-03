@@ -308,6 +308,7 @@ struct FIXMessageBuilder
         builder.append("38", order.volume.str());
         builder.append("44", order.price.str());
         builder.append("55", symbol);
+        builder.append("40", 1);
         return builder.serialize();
     }
 
@@ -317,8 +318,8 @@ struct FIXMessageBuilder
         builder.append("11", seqNum);
         builder.append("54", order.side);
         builder.append("38", order.volume.str());
+        builder.append("44", order.price.str());
         builder.append("55", symbol);
-        builder.append("40", '1');
         return builder.serialize();
     }
 

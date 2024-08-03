@@ -110,6 +110,10 @@ struct Stream : NodeBase
 
         std::string_view msg;
 
+        PHOENIX_LOG_INFO(this->getHandler(), config->instrumentList[0], first.price.str(), first.side);
+        PHOENIX_LOG_INFO(this->getHandler(), config->instrumentList[1], second.price.str(), second.side);
+        PHOENIX_LOG_INFO(this->getHandler(), config->instrumentList[2], bridge.price.str(), bridge.side);
+
         if (!reverse)
             msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[0], first);
         else

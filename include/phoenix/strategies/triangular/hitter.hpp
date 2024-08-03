@@ -80,9 +80,9 @@ struct Hitter : NodeBase
 
         ///////// TRIGGER
         // 2 cases:
-        // - buy ETH/USDC buy STETH/ETH sell STETH/USDC
+        // - buy ETH/USDC ask, buy STETH/ETH ask sell STETH/USDC bid
         //    : USDC > ETH > STETH > USDC
-        // - buy STETH/USDC sell STETH/ETH sell ETH/USDC : USDC > STETH > ETH > USDC :
+        // - buy STETH/USDC ask, sell STETH/ETH bid, sell ETH/USDC, bid
         //    : USDC > STETH > ETH > USDC
 
         // the variables below are:
@@ -94,24 +94,24 @@ struct Hitter : NodeBase
         auto& steth = bestPrices[1];
         auto& bridge = bestPrices[2];
 
-        if (eth.bid * bridge.bid > steth.ask)
+        if (eth.ask * bridge.ask < steth.bid && eth.ask < steth.bid)
         {
             handler->invoke(
                 tag::Stream::TakeTriangular{},
                 false,
-                Order{.price = eth.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = steth.ask, .volume = Volume{1.0}, .side = 2});
+                Order{.price = eth.ask, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = steth.bid, .volume = Volume{1.0}, .side = 2});
         }
 
-        if (steth.bid > eth.ask * bridge.ask)
+        if (steth.ask < eth.bid * bridge.bid && steth.ask < eth.bid)
         {
             handler->invoke(
                 tag::Stream::TakeTriangular{},
                 true,
-                Order{.price = steth.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 2}, //
-                Order{.price = eth.ask, .volume = Volume{1.0}, .side = 2});
+                Order{.price = steth.ask, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 2}, //
+                Order{.price = eth.bid, .volume = Volume{1.0}, .side = 2});
         }
     }
 
