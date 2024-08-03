@@ -102,10 +102,11 @@ struct Stream : NodeBase
             return;
 
         // if first order is made, the next 2 should be too, to reduce risk
-        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], second);
+        // last instrument should be the bridge
+        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], second);
         forceSendMsg(msg);
 
-        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], third);
+        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], third);
         forceSendMsg(msg);
     }
 
@@ -262,8 +263,11 @@ private:
 
     void heartbeatWorker()
     {
-        std::this_thread::sleep_for(HEARTBEAT_INTERVAL);
-        sendHeartbeat.test_and_set();
+        while (!stopHeartbeat.test())
+        {
+            std::this_thread::sleep_for(HEARTBEAT_INTERVAL);
+            sendHeartbeat.test_and_set();
+        }
     }
 
     io::io_context ioContext;
