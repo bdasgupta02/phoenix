@@ -80,10 +80,10 @@ struct Hitter : NodeBase
 
         ///////// TRIGGER
         // 2 cases:
-        // - buy ETH/USDC sell STETH/ETH sell STETH/USDC
+        // - buy ETH/USDC buy STETH/ETH sell STETH/USDC
         //    : USDC > ETH > STETH > USDC
         //    : if ETH/USDC bid > (STETH/USDC ask * STETH/ETH bid)
-        // - buy STETH/USDC buy STETH/ETH sell ETH/USDC : USDC > STETH > ETH > USDC :
+        // - buy STETH/USDC sell STETH/ETH sell ETH/USDC : USDC > STETH > ETH > USDC :
         //    : USDC > STETH > ETH > USDC
         //    : if STETH/USDC bid > (ETH/USDC ask / STETH/ETH ask)
 
@@ -96,28 +96,25 @@ struct Hitter : NodeBase
         auto& steth = bestPrices[1];
         auto& bridge = bestPrices[2];
 
-        auto stethConv = (steth.ask * bridge.bid);
+        auto stethConv = (steth.ask / bridge.bid);
         if (eth.bid > stethConv)
         {
-            PHOENIX_LOG_INFO(handler, "[OPPORTUNITY ETH]", eth.bid.str(), stethConv.str(), (eth.bid - stethConv).str());
             handler->invoke(
                 tag::Stream::TakeTriangular{},
                 false,
                 Order{.price = eth.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 2}, //
                 Order{.price = steth.ask, .volume = Volume{1.0}, .side = 2});
         }
 
-        auto ethConv = (eth.ask / bridge.ask);
+        auto ethConv = (eth.ask * bridge.ask);
         if (steth.bid > ethConv)
         {
-            PHOENIX_LOG_INFO(
-                handler, "[OPPORTUNITY STETH]", steth.bid.str(), ethConv.str(), (steth.bid - ethConv).str());
             handler->invoke(
                 tag::Stream::TakeTriangular{},
                 true,
                 Order{.price = steth.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 2}, //
+                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 1}, //
                 Order{.price = eth.ask, .volume = Volume{1.0}, .side = 2});
         }
     }

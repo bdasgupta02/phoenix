@@ -105,7 +105,7 @@ struct Stream : NodeBase
             lastSent = std::chrono::steady_clock::now();
             msgCountInterval = 3u;
         }
-        else if (msgCountInterval > 1u)
+        else
             return;
 
         std::string_view msg;
