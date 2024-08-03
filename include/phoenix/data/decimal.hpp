@@ -102,6 +102,8 @@ public:
         return static_cast<T>(value) / multiplier;
     }
 
+    double asDouble() const { return static_cast<double>(value) / multiplier; }
+
     std::uint64_t getValue() const { return value; }
 
     std::string str() const

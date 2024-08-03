@@ -82,10 +82,8 @@ struct Hitter : NodeBase
         // 2 cases:
         // - buy ETH/USDC buy STETH/ETH sell STETH/USDC
         //    : USDC > ETH > STETH > USDC
-        //    : if ETH/USDC bid > (STETH/USDC ask * STETH/ETH bid)
         // - buy STETH/USDC sell STETH/ETH sell ETH/USDC : USDC > STETH > ETH > USDC :
         //    : USDC > STETH > ETH > USDC
-        //    : if STETH/USDC bid > (ETH/USDC ask / STETH/ETH ask)
 
         // the variables below are:
         // - eth: ETH/USDC
@@ -96,25 +94,23 @@ struct Hitter : NodeBase
         auto& steth = bestPrices[1];
         auto& bridge = bestPrices[2];
 
-        auto stethConv = steth.bid / bridge.ask;
-        if (eth.bid > stethConv)
+        if (eth.bid * bridge.bid > steth.ask)
         {
             handler->invoke(
                 tag::Stream::TakeTriangular{},
                 false,
                 Order{.price = eth.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 2}, //
+                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 1}, //
                 Order{.price = steth.ask, .volume = Volume{1.0}, .side = 2});
         }
 
-        auto ethConv = eth.ask * bridge.ask;
-        if (steth.bid > ethConv)
+        if (steth.bid > eth.ask * bridge.ask)
         {
             handler->invoke(
                 tag::Stream::TakeTriangular{},
                 true,
                 Order{.price = steth.bid, .volume = Volume{1.0}, .side = 1}, //
-                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 2}, //
                 Order{.price = eth.ask, .volume = Volume{1.0}, .side = 2});
         }
     }
@@ -173,9 +169,9 @@ private:
             orderId,
             clOrderId,
             side == 1 ? "BID" : "ASK",
-            volume.template as<double>(),
+            volume.asDouble(),
             '@',
-            price.template as<double>(),
+            price.asDouble(),
             rejectReason.empty() ? "" : "with reason",
             rejectReason);
     }
