@@ -2,6 +2,7 @@
 
 #include "phoenix/common/logger.hpp"
 #include "phoenix/data/fix.hpp"
+#include "phoenix/data/orders.hpp"
 #include "phoenix/tags.hpp"
 
 #include <array>
@@ -14,9 +15,11 @@ template<typename NodeBase>
 struct Hitter : NodeBase
 {
     using NodeBase::NodeBase;
+    using Traits = NodeBase::Traits;
     using Price = NodeBase::Traits::PriceType;
     using Volume = NodeBase::Traits::VolumeType;
     using PriceValue = NodeBase::Traits::PriceType::ValueType;
+    using Order = SingleOrder<Traits>;
 
     [[gnu::hot, gnu::always_inline]]
     inline void handle(tag::Hitter::MDUpdate, FIXReader&& marketData, bool update = true)
@@ -54,14 +57,14 @@ struct Hitter : NodeBase
         if (bidIdx > -1)
         {
             newBid = marketData.getDecimal<Price>("270", bidIdx);
-            if (PriceValue{} != newBid)
+            if (Price{} != newBid)
                 instrumentPrices.bid = newBid;
         }
 
         if (askIdx > -1)
         {
             newAsk = marketData.getDecimal<Price>("270", askIdx);
-            if (PriceValue{} != newAsk)
+            if (Price{} != newAsk)
                 instrumentPrices.ask = newAsk;
         }
 
@@ -84,6 +87,11 @@ struct Hitter : NodeBase
         //    : USDC > STETH > ETH > USDC
         //    : if STETH/USDC bid > (ETH/USDC ask / STETH/ETH ask)
 
+        // the variables below are:
+        // - eth: ETH/USDC
+        // - steth: STETH/USDC
+        // - bridge: STETH/ETH
+
         auto& eth = bestPrices[0];
         auto& steth = bestPrices[1];
         auto& bridge = bestPrices[2];
@@ -92,6 +100,12 @@ struct Hitter : NodeBase
         if (eth.bid > stethConv)
         {
             PHOENIX_LOG_INFO(handler, "[OPPORTUNITY ETH]", eth.bid.str(), stethConv.str(), (eth.bid - stethConv).str());
+            handler->invoke(
+                tag::Stream::TakeTriangular{},
+                false,
+                Order{.price = eth.bid, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = bridge.bid, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = steth.ask, .volume = Volume{1.0}, .side = 2});
         }
 
         auto ethConv = (eth.ask / bridge.ask);
@@ -99,12 +113,76 @@ struct Hitter : NodeBase
         {
             PHOENIX_LOG_INFO(
                 handler, "[OPPORTUNITY STETH]", steth.bid.str(), ethConv.str(), (steth.bid - ethConv).str());
+            handler->invoke(
+                tag::Stream::TakeTriangular{},
+                true,
+                Order{.price = steth.bid, .volume = Volume{1.0}, .side = 1}, //
+                Order{.price = bridge.ask, .volume = Volume{1.0}, .side = 2}, //
+                Order{.price = eth.ask, .volume = Volume{1.0}, .side = 2});
         }
     }
 
-    void handle(tag::Hitter::ExecutionReport, FIXReader&& report) {}
+    [[gnu::hot, gnu::always_inline]]
+    inline void handle(tag::Hitter::ExecutionReport, FIXReader&& report)
+    {
+        auto* handler = this->getHandler();
+        auto* config = this->getConfig();
+
+        auto symbol = report.getStringView("55");
+        auto status = report.getNumber<unsigned int>("39");
+        auto const& orderId = report.getString("11");
+        auto const& clOrderId = report.getString("41");
+        auto remaining = report.getDecimal<Volume>("151");
+        auto justExecuted = report.getDecimal<Volume>("14");
+        auto side = report.getNumber<unsigned int>("54");
+        auto price = report.getDecimal<Price>("44");
+        PHOENIX_LOG_VERIFY(handler, (!price.error && !remaining.error), "Decimal parse error");
+
+        // new order
+        if (status == 0)
+            logOrder("[NEW ORDER]", orderId, clOrderId, side, price, remaining);
+
+        // partial/total fill
+        if (status == 1 || status == 2)
+            logOrder("[FILL]", orderId, clOrderId, side, price, justExecuted);
+
+        // cancelled
+        if (status == 4)
+            logOrder("[CANCELLED]", orderId, clOrderId, side, price, remaining);
+
+        // rejected
+        if (status == 8)
+        {
+            auto reason = report.getStringView("103");
+            logOrder("[REJECTED]", orderId, clOrderId, side, price, remaining, reason);
+        }
+    }
 
 private:
+    [[gnu::hot, gnu::always_inline]]
+    inline void logOrder(
+        std::string_view type,
+        std::string_view orderId,
+        std::string_view clOrderId,
+        unsigned int side,
+        Price price,
+        Volume volume,
+        std::string_view rejectReason = "")
+    {
+        auto* handler = this->getHandler();
+        PHOENIX_LOG_INFO(
+            handler,
+            type,
+            orderId,
+            clOrderId,
+            side == 1 ? "BID" : "ASK",
+            volume.template as<double>(),
+            '@',
+            price.template as<double>(),
+            rejectReason.empty() ? "" : "with reason",
+            rejectReason);
+    }
+
     struct InstrumentTopLevel
     {
         Price bid{PriceValue{}};

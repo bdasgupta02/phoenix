@@ -92,22 +92,38 @@ struct Stream : NodeBase
     [[gnu::hot, gnu::always_inline]]
     inline void handle(
         tag::Stream::TakeTriangular,
-        SingleOrder<Traits>& first,
-        SingleOrder<Traits>& second,
-        SingleOrder<Traits>& third)
+        bool reverse,
+        SingleOrder<Traits>&& first,
+        SingleOrder<Traits>&& bridge,
+        SingleOrder<Traits>&& second)
     {
         auto* config = this->getConfig();
-        auto msg = fixBuilder.newOrderSingle(nextSeqNum, config->instrumentList[0], first);
-        if (!trySendMsg(msg))
+
+        auto nextAllowed = lastSent + interval;
+        if (std::chrono::steady_clock::now() >= nextAllowed)
+        {
+            lastSent = std::chrono::steady_clock::now();
+            msgCountInterval = 3u;
+        }
+        else if (msgCountInterval > 1u)
             return;
 
-        // if first order is made, the next 2 should be too, to reduce risk
-        // last instrument should be the bridge
-        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], second);
-        forceSendMsg(msg);
+        std::string_view msg;
 
-        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], third);
-        forceSendMsg(msg);
+        if (!reverse)
+            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[0], first);
+        else
+            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], first);
+        sendUnthrottled(msg);
+
+        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], bridge);
+        sendUnthrottled(msg);
+
+        if (!reverse)
+            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], second);
+        else
+            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[0], second);
+        sendUnthrottled(msg);
     }
 
 private:
@@ -142,7 +158,7 @@ private:
         {
             try
             {
-                if (sendHeartbeat.test())
+                if (sendHeartbeat.test()) [[unlikely]]
                 {
                     auto blankHeartbeat = fixBuilder.heartbeat(nextSeqNum);
                     forceSendMsg(blankHeartbeat);
@@ -166,7 +182,7 @@ private:
                 // market data update
                 if (msgType == "X") [[likely]]
                 {
-                    handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader));
+                    handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), true);
                     continue;
                 }
 
@@ -244,7 +260,7 @@ private:
     inline bool trySendMsg(std::string_view msg)
     {
         auto nextAllowed = lastSent + interval;
-        if (std::chrono::steady_clock::now() <= nextAllowed)
+        if (std::chrono::steady_clock::now() >= nextAllowed)
         {
             lastSent = std::chrono::steady_clock::now();
             msgCountInterval = 1u;
@@ -254,11 +270,17 @@ private:
         else
             return false;
 
+        sendUnthrottled(msg);
+        return true;
+    }
+
+    [[gnu::hot, gnu::always_inline]]
+    inline void sendUnthrottled(std::string_view msg)
+    {
         boost::system::error_code error;
         io::write(socket, io::buffer(msg), error);
         PHOENIX_LOG_VERIFY(this->getHandler(), (!error), "Error while sending message", msg, error.message());
         ++nextSeqNum;
-        return true;
     }
 
     void heartbeatWorker()
