@@ -96,7 +96,7 @@ struct Hitter : NodeBase
         auto& steth = bestPrices[1];
         auto& bridge = bestPrices[2];
 
-        auto stethConv = (steth.ask / bridge.bid);
+        auto stethConv = steth.bid / bridge.ask;
         if (eth.bid > stethConv)
         {
             handler->invoke(
@@ -107,7 +107,7 @@ struct Hitter : NodeBase
                 Order{.price = steth.ask, .volume = Volume{1.0}, .side = 2});
         }
 
-        auto ethConv = (eth.ask * bridge.ask);
+        auto ethConv = eth.ask * bridge.ask;
         if (steth.bid > ethConv)
         {
             handler->invoke(
