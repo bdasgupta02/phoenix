@@ -2,7 +2,7 @@
 
 #include "phoenix/common/logger.hpp"
 #include "phoenix/data/fix.hpp"
-#include "phoenix/data/quotes.hpp"
+#include "phoenix/data/orders.hpp"
 #include "phoenix/tags.hpp"
 
 #include <boost/asio.hpp>
@@ -74,7 +74,7 @@ struct Stream : NodeBase
         startPipeline();
     }
 
-    inline void handle(tag::Stream::SendQuote, SingleQuote<Traits>& quote)
+    inline void handle(tag::Stream::SendQuote, SingleOrder<Traits>& quote)
     {
         auto msg = fixBuilder.newOrderSingle(nextSeqNum, this->getConfig()->instrument, quote);
         sendMsg(msg);
@@ -145,7 +145,7 @@ private:
                 // market data update
                 if (reader.isMessageType("W"))
                 {
-                    handler->invoke(tag::Quoter::Quote{}, std::move(reader));
+                    handler->invoke(tag::Quoter::MDUpdate{}, std::move(reader));
                     continue;
                 }
             }

@@ -239,6 +239,12 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
+    inline std::string_view heartbeat(std::size_t seqNum)
+    {
+        builder.reset(seqNum, "0", client);
+        return builder.serialize();
+    }
+
     inline std::string_view marketDataRequestTopLevel(std::size_t seqNum, std::string_view symbol)
     {
         builder.reset(seqNum, "V", client);
@@ -265,13 +271,30 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
-    inline std::string_view newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& quote)
+    inline std::string_view marketDataIncrementalTriple(std::size_t seqNum, std::vector<std::string> const& instruments)
+    {
+        builder.reset(seqNum, "V", client);
+        builder.append("262", seqNum);
+        builder.append("263", 1);
+        builder.append("265", 1);
+
+        builder.append("146", 3);
+        for (auto const& symbol : instruments)
+            builder.append("55", symbol);
+
+        builder.append("267", 2);
+        builder.append("269", 0);
+        builder.append("269", 1);
+        return builder.serialize();
+    }
+
+    inline std::string_view newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& order)
     {
         builder.reset(seqNum, "D", client);
 
         char* seqPtr = seqNumBuffer;
         auto const addToSeqBuffer = [&seqPtr](char c) { *seqPtr++ = c; };
-        if (quote.takeProfit)
+        if (order.takeProfit)
         {
             addToSeqBuffer('t');
             auto result = std::to_chars(seqPtr, seqPtr + sizeof(seqNumBuffer), seqNum);
@@ -281,10 +304,22 @@ struct FIXMessageBuilder
         else
             builder.append("11", seqNum);
 
-        builder.append("54", quote.side);
-        builder.append("38", quote.volume.str());
-        builder.append("44", quote.price.str());
+        builder.append("54", order.side);
+        builder.append("38", order.volume.str());
+        builder.append("44", order.price.str());
         builder.append("55", symbol);
+        return builder.serialize();
+    }
+
+    inline std::string_view newMarketOrderSingle(std::size_t seqNum, std::string_view symbol, auto& order)
+    {
+        builder.reset(seqNum, "D", client);
+        builder.append("11", seqNum);
+        builder.append("54", '0' + order.side);
+        builder.append("38", order.volume.str());
+        builder.append("44", order.price.str());
+        builder.append("55", symbol);
+        builder.append("40", '1');
         return builder.serialize();
     }
 
@@ -451,6 +486,7 @@ struct FIXReader
     }
 
     inline bool isMessageType(std::string_view msgType) { return this->msgType == msgType; }
+    inline std::string const& getMessageType() { return msgType; }
 
     inline bool contains(std::string const& tag, std::size_t index = 0u)
     {

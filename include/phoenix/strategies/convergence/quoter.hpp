@@ -2,7 +2,7 @@
 
 #include "phoenix/common/logger.hpp"
 #include "phoenix/data/fix.hpp"
-#include "phoenix/data/quotes.hpp"
+#include "phoenix/data/orders.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
@@ -27,7 +27,7 @@ struct Quoter : NodeBase
     using Asks = boost::container::flat_set<PriceValue, std::less<PriceValue>>;
 
     // TODO: handle case where only one side is available - now it leads to fatal
-    inline void handle(tag::Quoter::Quote, FIXReader&& topLevel)
+    inline void handle(tag::Quoter::MDUpdate, FIXReader&& topLevel)
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
@@ -269,7 +269,7 @@ private:
             rejectReason);
     }
 
-    void sendQuote(SingleQuote<Traits> quote)
+    void sendQuote(SingleOrder<Traits> quote)
     {
         auto* handler = this->getHandler();
 

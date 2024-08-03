@@ -3,7 +3,7 @@
 namespace phoenix {
 
 template<typename Traits>
-struct SingleQuote
+struct SingleOrder
 {
     using PriceType = Traits::PriceType;
     using VolumeType = Traits::VolumeType;

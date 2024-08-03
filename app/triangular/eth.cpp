@@ -15,7 +15,8 @@ struct Traits
     using PriceType = Decimal<4u>;
     using VolumeType = Decimal<4u>;
 
-    static constexpr VolumeType contractSize = VolumeType{"0.0001"};
+    // for all 3 instruments
+    static constexpr VolumeType CONTRACT_SIZE{"0.0001"};
 };
 
 // clang-format off

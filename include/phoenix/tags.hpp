@@ -13,6 +13,9 @@ struct Stream
     struct SendQuote
     {};
 
+    struct TakeTriangular
+    {};
+
     struct CancelQuote
     {};
 };
@@ -40,7 +43,7 @@ struct Profiler
 
 struct Quoter
 {
-    struct Quote
+    struct MDUpdate
     {};
 
     struct ExecutionReport
@@ -49,7 +52,7 @@ struct Quoter
 
 struct Hitter
 {
-    struct Hit
+    struct MDUpdate
     {};
 
     struct ExecutionReport

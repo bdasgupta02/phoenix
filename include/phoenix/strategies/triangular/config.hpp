@@ -3,7 +3,7 @@
 #include <boost/describe/enum_from_string.hpp>
 #include <boost/describe/enum_to_string.hpp>
 #include <boost/program_options.hpp>
-#include <boost/unordered/unordered_flat_set.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include <cstdint>
 #include <iostream>
@@ -36,6 +36,7 @@ struct Config
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
                 ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
+                ("log-prefix", po::value<std::string>(&instrument)->required(), "Prefix for all log files")
                 ("instrument", po::value<std::vector<std::string>>(&instrumentList)->required(), "List of instruments (should be 3)")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
             ;
@@ -52,10 +53,11 @@ struct Config
 
             po::notify(vm);
             assert(instrumentList.size() == 3);
+            std::size_t i = 0u;
             for (auto const& e : instrumentList)
             {
-                instrumentSet.insert(e);
                 instrument.append(e);
+                instrumentMap[e] = i++;
             }
 
             return true;
@@ -86,7 +88,7 @@ struct Config
     std::string instrument; // for logging
 
     std::vector<std::string> instrumentList;
-    boost::unordered_flat_set<std::string> instrumentSet;
+    boost::unordered_flat_map<std::string, std::size_t> instrumentMap;
 
     bool profiled = false;
 };
