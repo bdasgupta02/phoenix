@@ -108,6 +108,12 @@ struct Quoter : NodeBase
         // > lotSize to prevent trading on my own book event
         if (bestBid < 1.0 && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
         {
+            if (inventoryBid > config->positionBoundary)
+            {
+                PHOENIX_LOG_WARN(handler, "Bid position boundary reached, ignoring quote");
+                return;
+            }
+
             if (aggressive)
             {
                 PriceType const aggressiveBid = bestBid + tickSize;
@@ -126,6 +132,12 @@ struct Quoter : NodeBase
 
         if (bestAsk > 1.0 && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
         {
+            if (inventoryAsk > config->positionBoundary)
+            {
+                PHOENIX_LOG_WARN(handler, "Ask position boundary reached, ignoring quote");
+                return;
+            }
+
             if (aggressive)
             {
                 PriceType const aggressiveAsk = bestAsk - tickSize;
@@ -163,6 +175,8 @@ struct Quoter : NodeBase
             logOrder("[NEW ORDER]", orderId, clOrderId, side, price, remaining);
             auto priceValue = price.getValue();
 
+            auto remainingValue = remaining.asDouble();
+            openOrders += remainingValue;
             orders[orderId] = remaining;
             quotedLevels[priceValue] = orderId;
 
@@ -173,8 +187,6 @@ struct Quoter : NodeBase
                 else
                     asksQuoted.insert(priceValue);
             }
-
-            handler->invoke(tag::Risk::UpdatePosition{}, remaining.template as<double>(), side);
         }
 
         // partial/total fill
@@ -185,11 +197,26 @@ struct Quoter : NodeBase
             auto lastRemaining = orders[orderId];
             auto executed = lastRemaining - remaining;
 
+            auto executedValue = justExecuted.asDouble();
             if (clOrderId.size() > 0 && clOrderId[0] == 't')
-                takeProfitFilled += justExecuted.getValue();
+            {
+                takeProfitFilled += executedValue;
+
+                if (side == 1u)
+                    inventoryAsk -= executedValue;
+                else
+                    inventoryBid -= executedValue;
+            }
             else if (0u < executed)
             {
-                baseFilled += justExecuted.getValue();
+                openOrders -= executedValue;
+                baseFilled += executedValue;
+
+                if (side == 1u)
+                    inventoryBid += executedValue;
+                else
+                    inventoryAsk += executedValue;
+
                 unsigned int reversedSide = side == 1 ? 2 : 1;
                 PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
                 sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
@@ -202,7 +229,10 @@ struct Quoter : NodeBase
                 "[BASE FILLS]",
                 baseFilled,
                 "[EXPOSURE]",
-                (baseFilled - takeProfitFilled));
+                (baseFilled - takeProfitFilled),
+                "[INVENTORY]",
+                inventoryBid,
+                inventoryAsk);
 
             if (remaining.getValue() == 0)
             {
@@ -227,7 +257,6 @@ struct Quoter : NodeBase
                 bidsQuoted.erase(price.getValue());
             else
                 asksQuoted.erase(price.getValue());
-            handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
         }
 
         // rejected
@@ -241,8 +270,9 @@ struct Quoter : NodeBase
                 bidsQuoted.erase(price.getValue());
             else
                 asksQuoted.erase(price.getValue());
-            handler->invoke(tag::Risk::UpdatePosition{}, -remaining.template as<double>(), side);
         }
+
+        PHOENIX_LOG_INFO(handler, "[OPEN ORDERS]", openOrders);
     }
 
 private:
@@ -272,9 +302,6 @@ private:
     void sendQuote(SingleOrder<Traits> quote)
     {
         auto* handler = this->getHandler();
-
-        if (!handler->retrieve(tag::Risk::Check{}, quote))
-            return;
 
         handler->invoke(tag::Stream::SendQuote{}, quote);
         PHOENIX_LOG_INFO(
@@ -310,8 +337,11 @@ private:
     Bids bidsQuoted;
     Asks asksQuoted;
 
-    std::uint64_t takeProfitFilled = 0u;
-    std::uint64_t baseFilled = 0u;
+    double takeProfitFilled = 0.0;
+    double baseFilled = 0.0;
+    double openOrders = 0.0;
+    double inventoryBid = 0.0;
+    double inventoryAsk = 0.0;
 };
 
-} // namespace phoenix
+} // namespace phoenix::convergence

@@ -99,6 +99,8 @@ private:
         {
             try
             {
+                handler->invoke(tag::Risk::Check{});
+
                 if (!socket.available() && recvBuffer.size() == 0u)
                 {
                     auto mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
