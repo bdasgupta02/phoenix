@@ -70,8 +70,9 @@ struct Stream : NodeBase
 
 ### Construction of the graph
 ```cpp
-// Finally, create a graph with type traits and a node list
+// Finally, create a graph with a config, type traits and a node list
 using Graph = Router<
+    Config,
     Traits,
     NodeList<
         Risk,
