@@ -87,7 +87,7 @@ private:
     }
 
     template<typename Tag, typename... Args>
-    [[nodiscard, gnu::always_inline, gnu::hot]]
+    [[gnu::always_inline, gnu::hot]]
     inline auto retrieveImpl(Tag tag, Args&&... args)
     {
         static_assert(
@@ -110,7 +110,7 @@ private:
     }
 
     template<template<typename> class FirstNode, template<typename> class... RestNodes, typename Tag, typename... Args>
-    [[nodiscard, gnu::always_inline, gnu::hot]]
+    [[gnu::always_inline, gnu::hot]]
     inline auto tryRetrieve(Tag tag, Args&&... args)
     {
         if constexpr (concepts::HasReturnHandler<FirstNode<NodeBase<Traits, Router, Config>>, Tag, Router, Args...>)

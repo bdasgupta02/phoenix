@@ -8,9 +8,11 @@
 #include <boost/asio.hpp>
 #include <boost/regex.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <thread>
 #include <vector>
 
 #include <immintrin.h>
@@ -31,6 +33,7 @@ struct Stream : NodeBase
     Stream(auto const& config, auto& handler)
         : NodeBase{config, handler}
         , fixBuilder(config.client)
+        , heartbeatTimer(&Stream::heartbeatWorker, this)
     {
         recvBuffer.prepare(8192u);
     }
@@ -49,6 +52,9 @@ struct Stream : NodeBase
         socket.close(ec);
         if (ec)
             PHOENIX_LOG_ERROR(handler, "Error closing socket", ec.message());
+
+        stopHeartbeat.test_and_set();
+        heartbeatTimer.join();
     }
 
     void handle(tag::Stream::Start)
@@ -99,6 +105,14 @@ private:
         {
             try
             {
+                if (sendHeartbeat.test()) [[unlikely]]
+                {
+                    auto blankHeartbeat = fixBuilder.heartbeat(nextSeqNum);
+                    sendMsg(blankHeartbeat);
+                    PHOENIX_LOG_DEBUG(handler, "Sent heartbeat");
+                    sendHeartbeat.clear();
+                }
+
                 handler->invoke(tag::Risk::Check{});
 
                 if (!socket.available() && recvBuffer.size() == 0u)
@@ -201,9 +215,23 @@ private:
         lastSent = std::chrono::steady_clock::now();
     }
 
+    void heartbeatWorker()
+    {
+        while (!stopHeartbeat.test())
+        {
+            std::this_thread::sleep_for(HEARTBEAT_INTERVAL);
+            sendHeartbeat.test_and_set();
+        }
+    }
+
     io::io_context ioContext;
     io::ip::tcp::socket socket{ioContext};
     io::streambuf recvBuffer;
+
+    std::thread heartbeatTimer;
+    std::atomic_flag sendHeartbeat = ATOMIC_FLAG_INIT;
+    std::atomic_flag stopHeartbeat = ATOMIC_FLAG_INIT;
+    static constexpr std::chrono::seconds HEARTBEAT_INTERVAL{25u};
 
     bool isRunning = false;
     std::size_t nextSeqNum = 1u;

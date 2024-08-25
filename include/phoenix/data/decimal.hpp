@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <compare>
@@ -125,6 +126,12 @@ public:
         return std::to_string(integerPart) + '.' + fractionalPartStr;
     }
 
+    void minOrZero(Decimal const& other)
+    {
+        if (other && (other.value < value || !value))
+            value = other.value;
+    }
+
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
     Decimal operator-(Decimal const& other) const { return {value - other.value}; }
 
@@ -146,6 +153,8 @@ public:
     auto operator<=>(double other) { return as<double>() <=> other; }
     auto operator<=>(std::integral auto other) { return value <=> other; }
     auto operator<=>(Decimal const&) const = default;
+
+    explicit operator bool() const { return value != 0ULL; }
 
     void modify(auto&& func) { value = func(value); }
 

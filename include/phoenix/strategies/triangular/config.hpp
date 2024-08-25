@@ -39,6 +39,7 @@ struct Config
                 ("log-prefix", po::value<std::string>(&instrument)->required(), "Prefix for all log files")
                 ("instrument", po::value<std::vector<std::string>>(&instrumentList)->required(), "List of instruments (should be 3)")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
+                ("trigger-threshold", po::value<double>(&triggerThreshold)->default_value(triggerThreshold), "Trigger threshold for risk reduction")
             ;
             // clang-format on
 
@@ -86,6 +87,9 @@ struct Config
     LogLevel logLevel = LogLevel::INFO;
     bool printLogs = false;
     std::string instrument; // for logging
+
+    // settings
+    double triggerThreshold = 5.0;
 
     std::vector<std::string> instrumentList;
     boost::unordered_flat_map<std::string, std::size_t> instrumentMap;

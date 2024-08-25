@@ -20,7 +20,7 @@ struct RouterHandler
     }
 
     template<typename Tag, typename... Args>
-    [[nodiscard, gnu::always_inline, gnu::hot]]
+    [[gnu::always_inline, gnu::hot]]
     inline auto retrieve(Tag tag, Args&&... args)
     {
         return std::forward<decltype(static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args&&>(args)...))>(

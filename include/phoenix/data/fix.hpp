@@ -311,15 +311,16 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
-    inline std::string_view newMarketOrderSingle(std::size_t seqNum, std::string_view symbol, auto& order)
+    inline std::string_view newMarketOrderSingle(std::size_t seqNum, auto const& order)
     {
         builder.reset(seqNum, "D", client);
         builder.append("11", seqNum);
-        builder.append("54", order.side);
-        builder.append("38", order.volume.str());
-        builder.append("44", order.price.str());
-        builder.append("55", symbol);
         builder.append("40", 1);
+        builder.append("44", order.price.str());
+        builder.append("38", order.volume.str());
+        builder.append("54", order.side);
+        builder.append("55", order.symbol);
+        builder.append("59", 4); // FOK
         return builder.serialize();
     }
 

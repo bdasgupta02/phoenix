@@ -13,7 +13,7 @@ struct Stream
     struct SendQuote
     {};
 
-    struct TakeTriangular
+    struct TakeMarketOrders
     {};
 
     struct CancelQuote

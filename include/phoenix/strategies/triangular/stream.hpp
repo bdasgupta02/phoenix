@@ -89,13 +89,9 @@ struct Stream : NodeBase
         startPipeline();
     }
 
+    template<typename... Orders>
     [[gnu::hot, gnu::always_inline]]
-    inline void handle(
-        tag::Stream::TakeTriangular,
-        bool reverse,
-        SingleOrder<Traits>&& first,
-        SingleOrder<Traits>&& bridge,
-        SingleOrder<Traits>&& second)
+    inline bool handle(tag::Stream::TakeMarketOrders, Orders&&... orders)
     {
         auto* config = this->getConfig();
 
@@ -103,31 +99,33 @@ struct Stream : NodeBase
         if (std::chrono::steady_clock::now() >= nextAllowed)
         {
             lastSent = std::chrono::steady_clock::now();
-            msgCountInterval = 3u;
+            msgCountInterval = sizeof...(orders);
         }
         else
-            return;
+            return false;
 
-        std::string_view msg;
+        auto* handler = this->getHandler();
 
-        PHOENIX_LOG_INFO(this->getHandler(), config->instrumentList[0], first.price.str(), first.side);
-        PHOENIX_LOG_INFO(this->getHandler(), config->instrumentList[1], second.price.str(), second.side);
-        PHOENIX_LOG_INFO(this->getHandler(), config->instrumentList[2], bridge.price.str(), bridge.side);
+        auto const sendOrder = [this, handler](SingleOrder<Traits> const& order)
+        {
+            PHOENIX_LOG_DEBUG(
+                handler, "Sending order", order.symbol, order.volume.asDouble(), order.side == 1 ? "BID" : "ASK");
 
-        if (!reverse)
-            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[0], first);
-        else
-            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], first);
-        sendUnthrottled(msg);
+            if (order.isLimit)
+            {
+                std::string_view msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
+                sendUnthrottled(msg);
+            }
+            else
+            {
+                std::string_view msg = fixBuilder.newMarketOrderSingle(nextSeqNum, order);
+                sendUnthrottled(msg);
+            }
+        };
 
-        msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[2], bridge);
-        sendUnthrottled(msg);
+        (sendOrder(orders), ...);
 
-        if (!reverse)
-            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[1], second);
-        else
-            msg = fixBuilder.newMarketOrderSingle(nextSeqNum, config->instrumentList[0], second);
-        sendUnthrottled(msg);
+        return true;
     }
 
 private:
