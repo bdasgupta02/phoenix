@@ -308,6 +308,10 @@ struct FIXMessageBuilder
         builder.append("38", order.volume.str());
         builder.append("44", order.price.str());
         builder.append("55", symbol);
+
+        if (order.isFOK)
+            builder.append("59", 4); // FOK
+
         return builder.serialize();
     }
 

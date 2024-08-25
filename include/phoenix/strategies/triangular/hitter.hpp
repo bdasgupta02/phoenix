@@ -131,14 +131,16 @@ struct Hitter : NodeBase
                 .symbol = config->instrumentList[2],
                 .price = btcUsdc.ask,
                 .volume = 1.0,
-                .side = 1
+                .side = 1,
+                .isFOK = true
             };
 
             Order sellBtcUsdt{
                 .symbol = config->instrumentList[0],
                 .price = btcUsdt.bid,
                 .volume = 1.0,
-                .side = 2
+                .side = 2,
+                .isFOK = true
             };
 
             Order limitBridge{
@@ -172,14 +174,16 @@ struct Hitter : NodeBase
                 .symbol = config->instrumentList[0],
                 .price = btcUsdt.ask,
                 .volume = 1.0,
-                .side = 1
+                .side = 1,
+                .isFOK = true
             };
 
             Order sellBtcUsdc{
                 .symbol = config->instrumentList[2],
                 .price = btcUsdc.bid,
                 .volume = 1.0,
-                .side = 2
+                .side = 2,
+                .isFOK = true
             };
 
             Order limitBridge{
@@ -295,6 +299,7 @@ struct Hitter : NodeBase
                     fillMode = false;
                     filled = 0u;
                     PHOENIX_LOG_INFO(handler, "All orders filled");
+                    modifyUnrealizedPnl();
                     return;
                 }
             }
@@ -335,6 +340,32 @@ private:
             rejectReason);
     }
 
+    [[gnu::hot, gnu::always_inline]]
+    inline void modifyUnrealizedPnl()
+    {
+        Order& btcUsdtSent = sentOrders[0];
+        Order& btcUsdcSent = sentOrders[2];
+        Order& usdcUsdtSent = sentOrders[1];
+
+        // CASE 1
+        if (btcUsdtSent.side == 2)
+        {
+            double const priceDiff = btcUsdtSent.price.asDouble() - btcUsdcSent.price.asDouble();
+            double const withContract = priceDiff * 0.0001;
+            unrealizedPnl += withContract;
+        }
+
+        // CASE 2
+        if (btcUsdtSent.side == 1)
+        {
+            double const priceDiff = btcUsdcSent.price.asDouble() - btcUsdtSent.price.asDouble();
+            double const withContract = priceDiff * 0.0001;
+            unrealizedPnl += withContract;
+        }
+
+        PHOENIX_LOG_INFO(this->getHandler(), "[PNL]", "Unrealized:", unrealizedPnl);
+    }
+
     struct InstrumentTopLevel
     {
         Price bid{PriceValue{}};
@@ -349,7 +380,7 @@ private:
     bool fillMode = false;
     unsigned filled = 0u;
 
-    // TODO: add pnl analysis
+    double unrealizedPnl = 0.0;
 };
 
 } // namespace phoenix::triangular

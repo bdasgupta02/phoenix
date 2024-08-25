@@ -16,6 +16,7 @@ struct SingleOrder
     bool isLimit = true;
     bool takeProfit = false;
     bool isFilled = false;
+    bool isFOK = false;
     
     std::string orderId;
 };
