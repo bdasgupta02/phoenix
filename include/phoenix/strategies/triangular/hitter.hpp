@@ -125,7 +125,7 @@ struct Hitter : NodeBase
             PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());
 
             double bridgeVolume = btcUsdt.bid.asDouble() * config->contractSize;
-            if (usdt < bridgeVolume)
+            if (usdtBalance < bridgeVolume)
                 return;
 
             // clang-format off
@@ -161,7 +161,7 @@ struct Hitter : NodeBase
                 sentOrders[2] = buyBtcUsdc;
                 fillMode = true;
                 filled = 0u;
-                usdt -= bridgeVolume;
+                usdtBalance -= bridgeVolume;
             }
         }
 
@@ -171,7 +171,7 @@ struct Hitter : NodeBase
             PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());
 
             double bridgeVolume = btcUsdc.bid.asDouble() * config->contractSize;
-            if (usdc < bridgeVolume)
+            if (usdcBalance < bridgeVolume)
                 return;
 
             // clang-format off
@@ -207,7 +207,7 @@ struct Hitter : NodeBase
                 sentOrders[2] = sellBtcUsdc;
                 fillMode = true;
                 filled = 0u;
-                usdc -= bridgeVolume;
+                usdcBalance -= bridgeVolume;
             }
         }
 
@@ -314,9 +314,9 @@ struct Hitter : NodeBase
                 // assumption: qty == 1 for base asset, and using USDC/USDT for bridge
                 double bridgeVolume = std::round(bestPrices[0].bid.asDouble() * config->contractSize);
                 if (side == 1)
-                    usdc += bridgeVolume;
+                    usdcBalance += bridgeVolume;
                 else
-                    usdt += bridgeVolume;
+                    usdtBalance += bridgeVolume;
             }
         }
 
