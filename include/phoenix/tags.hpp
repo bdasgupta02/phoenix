@@ -57,6 +57,9 @@ struct Hitter
 
     struct ExecutionReport
     {};
+
+    struct InitUSDBalances
+    {};
 };
 
 struct Risk

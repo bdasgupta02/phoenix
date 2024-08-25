@@ -345,6 +345,16 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
+    inline std::string_view userRequest(std::size_t seqNum, std::string_view currency, std::string_view username)
+    {
+        builder.reset(seqNum, "BE", client);
+        builder.append("923", seqNum);
+        builder.append("924", 4);
+        builder.append("553", username);
+        builder.append("15", currency);
+        return builder.serialize();
+    }
+
 private:
     std::string encodeBase64(auto* bytes, unsigned int length)
     {

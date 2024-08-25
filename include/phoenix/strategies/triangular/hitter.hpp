@@ -122,9 +122,11 @@ struct Hitter : NodeBase
         // CASE 1
         if (btcUsdt.bid - triggerThreshold > btcUsdc.ask + triggerThreshold)
         {
-            PHOENIX_LOG_INFO(handler, "OPP CASE 1", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());
 
-            double bridgeVolume = 1.0 * btcUsdt.bid.asDouble() * 0.0001;
+            double bridgeVolume = btcUsdt.bid.asDouble() * config->contractSize;
+            if (usdt < bridgeVolume)
+                return;
 
             // clang-format off
             Order buyBtcUsdc{
@@ -159,15 +161,18 @@ struct Hitter : NodeBase
                 sentOrders[2] = buyBtcUsdc;
                 fillMode = true;
                 filled = 0u;
+                usdt -= bridgeVolume;
             }
         }
 
         // CASE 2
         if (btcUsdc.bid - triggerThreshold > btcUsdt.ask + triggerThreshold)
         {
-            PHOENIX_LOG_INFO(handler, "OPP CASE 2", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());
 
-            double bridgeVolume = 1.0 * btcUsdc.bid.asDouble() * 0.0001;
+            double bridgeVolume = btcUsdc.bid.asDouble() * config->contractSize;
+            if (usdc < bridgeVolume)
+                return;
 
             // clang-format off
             Order buyBtcUsdt{
@@ -202,6 +207,7 @@ struct Hitter : NodeBase
                 sentOrders[2] = sellBtcUsdc;
                 fillMode = true;
                 filled = 0u;
+                usdc -= bridgeVolume;
             }
         }
 
@@ -303,6 +309,15 @@ struct Hitter : NodeBase
                     return;
                 }
             }
+            else
+            {
+                // assumption: qty == 1 for base asset, and using USDC/USDT for bridge
+                double bridgeVolume = std::round(bestPrices[0].bid.asDouble() * config->contractSize);
+                if (side == 1)
+                    usdc += bridgeVolume;
+                else
+                    usdt += bridgeVolume;
+            }
         }
 
         // cancelled
@@ -315,6 +330,13 @@ struct Hitter : NodeBase
             auto reason = report.getStringView("103");
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
         }
+    }
+
+    inline void handle(tag::Hitter::InitUSDBalances, double usdc, double usdt)
+    {
+        usdcBalance = usdc;
+        usdtBalance = usdt;
+        PHOENIX_LOG_INFO(this->getHandler(), "[USD BALANCES]", "USDC:", usdc, "USDT:", usdt);
     }
 
 private:
@@ -381,6 +403,9 @@ private:
     unsigned filled = 0u;
 
     double unrealizedPnl = 0.0;
+
+    double usdcBalance;
+    double usdtBalance;
 };
 
 } // namespace phoenix::triangular

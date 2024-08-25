@@ -40,6 +40,7 @@ struct Config
                 ("instrument", po::value<std::vector<std::string>>(&instrumentList)->required(), "List of instruments (should be 3)")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("trigger-threshold", po::value<double>(&triggerThreshold)->default_value(triggerThreshold), "Trigger threshold for risk reduction")
+                ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Asset contract size")
             ;
             // clang-format on
 
@@ -90,6 +91,7 @@ struct Config
 
     // settings
     double triggerThreshold = 5.0;
+    double contractSize = 0.0001;
 
     std::vector<std::string> instrumentList;
     boost::unordered_flat_map<std::string, std::size_t> instrumentMap;
