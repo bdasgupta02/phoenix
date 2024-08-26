@@ -4,11 +4,12 @@
 
 namespace phoenix {
 // To be optionally inherited by nodes to gain access to configuration
-template<typename _Traits, typename _Router, typename Config>
+template<typename _Traits, typename _Router, typename _Config>
 struct NodeBase
 {
     using Traits = _Traits;
     using Router = _Router;
+    using Config = _Config;
 
     NodeBase(Config const& config, RouterHandler<Router>& handler)
         : config{&config}

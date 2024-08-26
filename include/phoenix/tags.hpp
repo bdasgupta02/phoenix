@@ -18,6 +18,9 @@ struct Stream
 
     struct CancelQuote
     {};
+
+    struct GetBalance
+    {};
 };
 
 struct Logger
@@ -58,7 +61,7 @@ struct Hitter
     struct ExecutionReport
     {};
 
-    struct InitUSDBalances
+    struct InitBalances
     {};
 };
 

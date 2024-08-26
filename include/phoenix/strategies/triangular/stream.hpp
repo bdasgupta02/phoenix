@@ -128,6 +128,15 @@ struct Stream : NodeBase
         return true;
     }
 
+    double handle(tag::Stream::GetBalance, std::string_view currency)
+    {
+        auto msg = fixBuilder.userRequest(nextSeqNum, currency, this->getConfig()->username);
+        forceSendMsg(msg);
+        auto reader = recvMsg();
+        PHOENIX_LOG_VERIFY(this->getHandler(), reader.isMessageType("BF"), "Invalid message type");
+        return reader.template getNumber<double>("100001");
+    }
+
 private:
     void startPipeline()
     {
@@ -139,21 +148,7 @@ private:
 
         PHOENIX_LOG_INFO(handler, "Starting trading pipeline");
 
-        // get USDC/USDT balances
-        auto usdcBalanceReq = fixBuilder.userRequest(nextSeqNum, "USDC", config->username);
-        forceSendMsg(usdcBalanceReq);
-        auto usdcResp = recvMsg();
-        PHOENIX_LOG_VERIFY(handler, usdcResp.isMessageType("BF"), "Invalid message type");
-
-        auto usdtBalanceReq = fixBuilder.userRequest(nextSeqNum, "USDT", config->username);
-        forceSendMsg(usdtBalanceReq);
-        auto usdtResp = recvMsg();
-        PHOENIX_LOG_VERIFY(handler, usdtResp.isMessageType("BF"), "Invalid message type");
-
-        handler->invoke(
-            tag::Hitter::InitUSDBalances{},
-            usdcResp.template getNumber<double>("100001"),
-            usdtResp.template getNumber<double>("100001"));
+        handler->invoke(tag::Hitter::InitBalances{});
 
         // initializing snapshots
         for (auto const& instrument : instrumentList)

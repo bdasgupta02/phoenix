@@ -3,7 +3,7 @@
 #include "phoenix/data/decimal.hpp"
 #include "phoenix/graph/router.hpp"
 #include "phoenix/strategies/triangular/config.hpp"
-#include "phoenix/strategies/triangular/hitter.hpp"
+#include "phoenix/strategies/triangular/btc/hitter.hpp"
 #include "phoenix/strategies/triangular/risk.hpp"
 #include "phoenix/strategies/triangular/stream.hpp"
 

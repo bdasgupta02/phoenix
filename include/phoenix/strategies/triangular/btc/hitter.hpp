@@ -9,7 +9,10 @@
 #include <cstdint>
 #include <limits>
 
-// TODO: balance check and sleep for 10 mins
+// TODO: balance check and sleep
+// TODO: 0.0 threshold low latency
+// TODO: diming rebalancing algorithm - bid = ask - 1, ask = bid + 1
+//        - dime quotes proven to work
 
 namespace phoenix::triangular {
 
@@ -36,7 +39,7 @@ struct Hitter : NodeBase
         auto const it = instrumentMap.find(symbol);
         PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
 
-        ///////// UPDATE PRICES (all 2nd level to reduce risk of slippage)
+        ///////// UPDATE PRICES
 
         Price newBid;
         Price newAsk;
@@ -122,14 +125,17 @@ struct Hitter : NodeBase
 
         double const triggerThreshold = config->triggerThreshold;
 
+        Price const usdAsk = usdcUsdt.bid + 0.0001;
+        Price const usdBid = usdcUsdt.ask - 0.0001;
+
         // CASE 1
-        if (btcUsdt.bid - triggerThreshold > btcUsdc.ask + triggerThreshold)
+        if (btcUsdt.bid - triggerThreshold > btcUsdc.ask * usdcUsdt.ask)
         {
-            /*PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());*/
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), (btcUsdc.ask * usdcUsdt.ask).str());
 
             double bridgeVolume = btcUsdt.bid.asDouble() * config->contractSize;
-            if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)
-                return;
+            /*if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)*/
+            /*    return;*/
 
             // clang-format off
             Order sellBtcUsdt{
@@ -146,19 +152,18 @@ struct Hitter : NodeBase
                 .isLimit = false
             };
 
-            Order limitBridge{
+            Order bridge{
                 .symbol = config->instrumentList[1],
-                .price = 0.9999,
                 .volume = bridgeVolume,
                 .side = 1,
-                .takeProfit = true
+                .isLimit = false
             };
             // clang-format on
 
-            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcUsdc, sellBtcUsdt, limitBridge))
+            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcUsdc, sellBtcUsdt, bridge))
             {
                 sentOrders[0] = sellBtcUsdt;
-                sentOrders[1] = limitBridge;
+                sentOrders[1] = bridge;
                 sentOrders[2] = buyBtcUsdc;
                 fillMode = true;
                 filled = 0u;
@@ -167,13 +172,13 @@ struct Hitter : NodeBase
         }
 
         // CASE 2
-        if (btcUsdc.bid - triggerThreshold > btcUsdt.ask + triggerThreshold)
+        if (btcUsdc.bid * usdcUsdt.bid > btcUsdt.ask + triggerThreshold)
         {
-            /*PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());*/
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", (btcUsdc.bid * usdcUsdt.bid).str(), btcUsdt.ask.str());
 
             double bridgeVolume = btcUsdc.bid.asDouble() * config->contractSize;
-            if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)
-                return;
+            /*if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)*/
+            /*    return;*/
 
             // clang-format off
             Order buyBtcUsdt{
@@ -190,19 +195,18 @@ struct Hitter : NodeBase
                 .isLimit = false
             };
 
-            Order limitBridge{
+            Order bridge{
                 .symbol = config->instrumentList[1],
-                .price = 1.0001,
                 .volume = bridgeVolume,
                 .side = 2,
-                .takeProfit = true
+                .isLimit = false
             };
             // clang-format on
 
-            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcUsdt, sellBtcUsdc, limitBridge))
+            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcUsdt, sellBtcUsdc, bridge))
             {
                 sentOrders[0] = buyBtcUsdt;
-                sentOrders[1] = limitBridge;
+                sentOrders[1] = bridge;
                 sentOrders[2] = sellBtcUsdc;
                 fillMode = true;
                 filled = 0u;
@@ -261,7 +265,7 @@ struct Hitter : NodeBase
                 sentOrder.isFilled = true;
                 sentOrder.price = avgFillPrice;
 
-                if (++filled == 2u)
+                if (++filled == 3u)
                 {
                     fillMode = false;
                     filled = 0u;
@@ -292,14 +296,16 @@ struct Hitter : NodeBase
         {
             auto reason = report.getStringView("103");
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
+            PHOENIX_LOG_WARN(handler, "[BALANCES]", "USDC:", usdcBalance, "USDT:", usdtBalance);
         }
     }
 
-    inline void handle(tag::Hitter::InitUSDBalances, double usdc, double usdt)
+    inline void handle(tag::Hitter::InitBalances)
     {
-        usdcBalance = usdc;
-        usdtBalance = usdt;
-        PHOENIX_LOG_INFO(this->getHandler(), "[USD BALANCES]", "USDC:", usdc, "USDT:", usdt);
+        auto* handler = this->getHandler();
+        usdcBalance = handler->retrieve(tag::Stream::GetBalance{}, "USDC");
+        usdtBalance = handler->retrieve(tag::Stream::GetBalance{}, "USDT");
+        PHOENIX_LOG_INFO(this->getHandler(), "[USD BALANCES]", "USDC:", usdcBalance, "USDT:", usdtBalance);
     }
 
 private:
