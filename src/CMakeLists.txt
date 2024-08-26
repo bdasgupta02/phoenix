@@ -9,7 +9,6 @@ target_link_libraries(phoenix PUBLIC
     Boost::lockfree
     Boost::describe
     Boost::asio
-    Boost::log
     Boost::regex
     OpenSSL::Crypto
 )

@@ -199,9 +199,13 @@ struct Hitter : NodeBase
         case 4: logOrder("[CANCELLED]", orderId, side, price, remaining); break;
 
         case 8:
+        {
             auto reason = report.getStringView("103");
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
-            break;
+        }
+        break;
+
+        default: PHOENIX_LOG_WARN(handler, "Other status type", status); break;
         };
     }
 
@@ -243,7 +247,7 @@ private:
             handler,
             type,
             orderId,
-            side == 1 ? "BID" : "ASK",
+            side == 1 ? "BUY" : "SELL",
             volume.asDouble(),
             '@',
             price.asDouble(),
