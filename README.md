@@ -17,7 +17,7 @@ Deribit with TCP and FIX protocol
 - Arch Linux
 - x86_64
 - GCC 14.1.1
-- C++ 20
+- C++ 23
 
 ## Static dependency injection
 This project also includes a very overkill but small implementation for an automatic wiring system for static dependency injection. My design tries to simplify the end-user interface at the expense of some compile time. Just create a graph like below, and construct/run it like magic:
