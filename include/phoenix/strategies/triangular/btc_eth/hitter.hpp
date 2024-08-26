@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <limits>
 
+// TODO: finish hitter
+
 namespace phoenix::triangular {
 
 template<typename NodeBase>

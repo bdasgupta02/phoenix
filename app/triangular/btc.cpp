@@ -2,8 +2,8 @@
 #include "phoenix/common/profiler.hpp"
 #include "phoenix/data/decimal.hpp"
 #include "phoenix/graph/router.hpp"
-#include "phoenix/strategies/triangular/config.hpp"
 #include "phoenix/strategies/triangular/btc/hitter.hpp"
+#include "phoenix/strategies/triangular/config.hpp"
 #include "phoenix/strategies/triangular/risk.hpp"
 #include "phoenix/strategies/triangular/stream.hpp"
 
@@ -40,6 +40,6 @@ int main(int argc, char* argv[])
     auto* handler = graph.getHandler();
 
     handler->invoke(tag::Logger::Start{});
-    PHOENIX_LOG_INFO(handler, "Starting Triangular Arbitrage System");
+    PHOENIX_LOG_INFO(handler, "Starting BTC/USDT/USDC Triangular Arbitrage System");
     handler->invoke(tag::Stream::Start{});
 }

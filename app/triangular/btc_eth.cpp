@@ -30,6 +30,8 @@ using Graph = Router<
 >;
 // clang-format on
 
+// Hitter has not been imlpemented yet
+// TODO: init this strategy
 int main(int argc, char* argv[])
 {
     Config<Traits> config;
@@ -40,6 +42,6 @@ int main(int argc, char* argv[])
     auto* handler = graph.getHandler();
 
     handler->invoke(tag::Logger::Start{});
-    PHOENIX_LOG_INFO(handler, "Starting Triangular Arbitrage System");
+    PHOENIX_LOG_INFO(handler, "Starting BTC/ETH/USDC Triangular Arbitrage System");
     handler->invoke(tag::Stream::Start{});
 }

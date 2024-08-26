@@ -65,22 +65,12 @@ struct Hitter : NodeBase
         auto& steth = bestPrices[2];
         auto& bridge = bestPrices[1];
 
-        /*PHOENIX_LOG_INFO(*/
-        /*    handler,*/
-        /*    "[MD]",*/
-        /*    eth.bid.str(),*/
-        /*    eth.ask.str(),*/
-        /*    steth.bid.str(),*/
-        /*    steth.ask.str(),*/
-        /*    bridge.bid.str(),*/
-        /*    bridge.ask.str());*/
-
         double const volume = config->volumeSize;
 
         // Buy ETH, Buy STETH/ETH, Sell STETH
         if (steth.bid > eth.ask * bridge.ask)
         {
-            PHOENIX_LOG_INFO(handler, "OPP CASE 1");
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]");
 
             // clang-format off
             Order buyEth{
@@ -118,7 +108,7 @@ struct Hitter : NodeBase
         // Buy STETH, Sell STETH/ETH, Sell ETH
         if (eth.bid * bridge.bid > steth.ask)
         {
-            PHOENIX_LOG_INFO(handler, "OPP CASE 2");
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]");
 
             // clang-format off
             Order buySteth{
@@ -201,7 +191,7 @@ struct Hitter : NodeBase
                 fillMode = false;
                 filled = 0u;
                 PHOENIX_LOG_INFO(handler, "All orders filled");
-                updateUnrealizedPnl();
+                updatePnl();
             }
         }
         break;
@@ -219,7 +209,7 @@ struct Hitter : NodeBase
 
 private:
     [[gnu::hot, gnu::always_inline]]
-    inline void updateUnrealizedPnl()
+    inline void updatePnl()
     {
         Order& eth = sentOrders[0];
         Order& steth = sentOrders[2];
@@ -230,13 +220,13 @@ private:
 
         // CASE 1
         if (eth.side == 1)
-            unrealizedPnl += ((eth.price * bridge.price) - steth.price).asDouble() * contractSize * volume;
+            pnl += ((eth.price * bridge.price) - steth.price).asDouble() * contractSize * volume;
 
         // CASE 2
         if (steth.side == 1)
-            unrealizedPnl += (steth.price - (eth.price * bridge.price)).asDouble() * contractSize * volume;
+            pnl += (steth.price - (eth.price * bridge.price)).asDouble() * contractSize * volume;
 
-        PHOENIX_LOG_INFO(handler, "[PNL]", "Unrealized:", unrealizedPnl);
+        PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -275,7 +265,7 @@ private:
     bool fillMode = false;
     unsigned filled = 0u;
 
-    double unrealizedPnl = 0.0;
+    double pnl = 0.0;
 };
 
 } // namespace phoenix::triangular

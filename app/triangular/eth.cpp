@@ -40,6 +40,6 @@ int main(int argc, char* argv[])
     auto* handler = graph.getHandler();
 
     handler->invoke(tag::Logger::Start{});
-    PHOENIX_LOG_INFO(handler, "Starting ETH Triangular Arbitrage System");
+    PHOENIX_LOG_INFO(handler, "Starting ETH/STETH/USDC Triangular Arbitrage System");
     handler->invoke(tag::Stream::Start{});
 }
