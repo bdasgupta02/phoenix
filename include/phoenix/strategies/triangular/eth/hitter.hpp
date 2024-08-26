@@ -27,6 +27,7 @@ struct Hitter : NodeBase
         : NodeBase(config, handler)
         , config{&config}
         , handler{&handler}
+        , threshold{config.triggerThreshold}
     {}
 
     [[gnu::hot, gnu::always_inline]]
@@ -66,7 +67,6 @@ struct Hitter : NodeBase
         auto& bridge = bestPrices[1];
 
         double const volume = config->volumeSize;
-        Price const threshold{config->triggerThreshold};
 
         // Buy ETH, Buy STETH for ETH, Sell STETH
         if (steth.bid - threshold > eth.ask * bridge.ask)
@@ -261,6 +261,7 @@ private:
 
     RouterHandler<Router>* const handler;
     Config const* const config;
+    Price threshold;
 
     std::array<InstrumentTopLevel, 3u> bestPrices;
     std::array<Order, 3u> sentOrders;
