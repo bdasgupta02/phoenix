@@ -217,14 +217,15 @@ private:
 
         double const contractSize = config->contractSize;
         double const volume = config->volumeSize;
+        double const multiplier = contractSize * volume;
 
         // CASE 1
         if (eth.side == 1)
-            pnl += ((eth.price * bridge.price) - steth.price).asDouble() * contractSize * volume;
+            pnl += ((eth.price.asDouble() * bridge.price.asDouble()) - steth.price.asDouble()) * multiplier;
 
         // CASE 2
         if (steth.side == 1)
-            pnl += (steth.price - (eth.price * bridge.price)).asDouble() * contractSize * volume;
+            pnl += (steth.price.asDouble() - (eth.price.asDouble() * bridge.price.asDouble())) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
     }
