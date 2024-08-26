@@ -223,9 +223,9 @@ private:
         double const volume = config->volumeSize;
         double const multiplier = contractSize * volume;
 
-        if (eth.side == 1)
+        if (sentOrders[0].side == 1)
             pnl += (eth - (steth * bridge)) * multiplier;
-        else if (steth.side == 1)
+        else
             pnl += ((steth * bridge) - eth) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
