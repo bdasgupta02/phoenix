@@ -517,7 +517,7 @@ struct FIXReader
 
     inline std::size_t getFieldSize(std::string const& tag) { return fields[tag].size(); }
 
-    static constexpr std::string UNKNOWN = "UNKNOWN";
+    std::string const UNKNOWN = "UNKNOWN";
 
 private:
     boost::unordered_flat_map<std::string, std::vector<std::string>> fields;

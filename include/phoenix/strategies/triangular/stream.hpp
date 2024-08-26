@@ -182,7 +182,7 @@ private:
                 auto reader = recvMsg();
 
                 auto const& recvInstrument = reader.getString("55");
-                if (recvInstrument != FIXReader::UNKNOWN && !instrumentMap.contains(recvInstrument))
+                if (recvInstrument != reader.UNKNOWN && !instrumentMap.contains(recvInstrument))
                 {
                     PHOENIX_LOG_DEBUG(handler, "Message received for other instrument", reader.getStringView("55"));
                     continue;
