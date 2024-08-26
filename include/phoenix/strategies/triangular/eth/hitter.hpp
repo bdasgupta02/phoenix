@@ -67,8 +67,8 @@ struct Hitter : NodeBase
 
         double const volume = config->volumeSize;
 
-        // Buy ETH, Buy STETH/ETH, Sell STETH
-        if (steth.bid / bridge.ask > eth.ask)
+        // Buy ETH, Buy STETH for ETH, Sell STETH
+        if (steth.bid > eth.ask * bridge.bid)
         {
             PHOENIX_LOG_INFO(handler, "[OPP CASE 1]");
 
@@ -105,8 +105,8 @@ struct Hitter : NodeBase
             }
         }
 
-        // Buy STETH, Sell STETH/ETH, Sell ETH
-        if (eth.bid > steth.ask / bridge.bid)
+        // Buy STETH, Sell STETH for ETH, Sell ETH
+        if (eth.bid * bridge.bid > steth.ask)
         {
             PHOENIX_LOG_INFO(handler, "[OPP CASE 2]");
 
@@ -215,21 +215,18 @@ private:
     [[gnu::hot, gnu::always_inline]]
     inline void updatePnl()
     {
-        Order& eth = sentOrders[0];
-        Order& steth = sentOrders[2];
-        Order& bridge = sentOrders[1];
+        double eth = sentOrders[0].price.asDouble();
+        double steth = sentOrders[2].price.asDouble();
+        double bridge = sentOrders[1].price.asDouble();
 
         double const contractSize = config->contractSize;
         double const volume = config->volumeSize;
         double const multiplier = contractSize * volume;
 
-        // CASE 1
         if (eth.side == 1)
-            pnl += (eth.price.asDouble() - (steth.price.asDouble() / bridge.price.asDouble())) * multiplier;
-
-        // CASE 2
-        if (steth.side == 1)
-            pnl += ((steth.price.asDouble() / bridge.price.asDouble()) - eth.price.asDouble()) * multiplier;
+            pnl += (eth - (steth * bridge)) * multiplier;
+        else if (steth.side == 1)
+            pnl += ((steth * bridge) - eth) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
     }
