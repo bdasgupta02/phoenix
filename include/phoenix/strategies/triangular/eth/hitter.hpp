@@ -69,7 +69,7 @@ struct Hitter : NodeBase
         Price const threshold{config->triggerThreshold};
 
         // Buy ETH, Buy STETH for ETH, Sell STETH
-        if (steth.bid + threshold > eth.ask * bridge.ask)
+        if (steth.bid - threshold > eth.ask * bridge.ask)
         {
             PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", steth.bid.asDouble(), eth.ask.asDouble(), bridge.ask.asDouble());
 
@@ -107,7 +107,7 @@ struct Hitter : NodeBase
         }
 
         // Buy STETH, Sell STETH for ETH, Sell ETH
-        if ((eth.bid * bridge.bid) + threshold > steth.ask)
+        if ((eth.bid * bridge.bid) - threshold > steth.ask)
         {
             PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", eth.bid.asDouble(), steth.ask.asDouble(), bridge.bid.asDouble());
 
