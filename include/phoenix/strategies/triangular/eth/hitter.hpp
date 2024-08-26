@@ -66,9 +66,10 @@ struct Hitter : NodeBase
         auto& bridge = bestPrices[1];
 
         double const volume = config->volumeSize;
+        Price const threshold{config->triggerThreshold};
 
         // Buy ETH, Buy STETH for ETH, Sell STETH
-        if (steth.bid > eth.ask * bridge.ask)
+        if (steth.bid + threshold > eth.ask * bridge.ask)
         {
             PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", steth.bid.asDouble(), eth.ask.asDouble(), bridge.ask.asDouble());
 
@@ -106,7 +107,7 @@ struct Hitter : NodeBase
         }
 
         // Buy STETH, Sell STETH for ETH, Sell ETH
-        if (eth.bid * bridge.bid > steth.ask)
+        if ((eth.bid * bridge.bid) + threshold > steth.ask)
         {
             PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", eth.bid.asDouble(), steth.ask.asDouble(), bridge.bid.asDouble());
 
@@ -224,9 +225,9 @@ private:
         double const multiplier = contractSize * volume;
 
         if (sentOrders[0].side == 1)
-            pnl += ((eth * bridge) - steth) * multiplier;
-        else
             pnl += (steth - (eth * bridge)) * multiplier;
+        else
+            pnl += ((eth * bridge) - steth) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
     }
