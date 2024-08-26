@@ -42,6 +42,7 @@ struct Config
                 ("trigger-threshold", po::value<double>(&triggerThreshold)->default_value(triggerThreshold), "Trigger threshold for risk reduction")
                 ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Asset contract size")
                 ("volume-size", po::value<double>(&volumeSize)->default_value(volumeSize), "Asset contract size")
+                ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
             ;
             // clang-format on
 
@@ -99,6 +100,7 @@ struct Config
     boost::unordered_flat_map<std::string, std::size_t> instrumentMap;
 
     bool profiled = false;
+    bool colo = false;
 };
 
 } // namespace phoenix::triangular

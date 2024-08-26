@@ -73,9 +73,18 @@ struct Stream : NodeBase
 
         try
         {
-            io::ip::tcp::resolver resolver{ioContext};
-            auto endpoints = resolver.resolve(config->host, config->port);
-            io::connect(socket, endpoints);
+            if (config->colo)
+            {
+                int port = std::atoi(config->port.c_str());
+                io::ip::tcp::endpoint endpoint(io::ip::address::from_string(config->host), port);
+                socket.connect(endpoint);
+            }
+            else
+            {
+                io::ip::tcp::resolver resolver{ioContext};
+                auto endpoints = resolver.resolve(config->host, config->port);
+                io::connect(socket, endpoints);
+            }
             PHOENIX_LOG_INFO(handler, "Connected successfully");
             isRunning = true;
         }
