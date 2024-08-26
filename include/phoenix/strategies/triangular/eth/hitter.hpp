@@ -70,7 +70,7 @@ struct Hitter : NodeBase
         // Buy ETH, Buy STETH for ETH, Sell STETH
         if (steth.bid > eth.ask * bridge.bid)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]");
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", steth.bid.asDouble(), eth.ask.asDouble(), bridge.bid.asDouble());
 
             // clang-format off
             Order buyEth{
@@ -108,7 +108,7 @@ struct Hitter : NodeBase
         // Buy STETH, Sell STETH for ETH, Sell ETH
         if (eth.bid * bridge.bid > steth.ask)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]");
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", eth.bid.asDouble(), steth.ask.asDouble(), bridge.bid.asDouble());
 
             // clang-format off
             Order buySteth{
