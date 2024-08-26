@@ -224,9 +224,9 @@ private:
         double const multiplier = contractSize * volume;
 
         if (sentOrders[0].side == 1)
-            pnl += (eth - (steth * bridge)) * multiplier;
+            pnl += ((eth * bridge) - steth) * multiplier;
         else
-            pnl += ((steth * bridge) - eth) * multiplier;
+            pnl += (steth - (eth * bridge)) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
     }
