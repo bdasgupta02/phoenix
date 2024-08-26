@@ -135,20 +135,8 @@ public:
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
     Decimal operator-(Decimal const& other) const { return {value - other.value}; }
 
-    Decimal operator*(Decimal const& other) const
-    {
-        std::uint64_t result = value * other.value;
-        std::uint64_t scaledResult = result / multiplier;
-        return {scaledResult};
-    }
-
-    Decimal operator/(Decimal const& other) const
-    {
-        assert(other.value != 0);
-        std::uint64_t scaledDividend = value * multiplier;
-        std::uint64_t result = scaledDividend / other.value;
-        return {result};
-    }
+    Decimal operator*(Decimal const& other) const { return {asDouble() * other.asDouble()}; }
+    Decimal operator/(Decimal const& other) const { return {asDouble() / other.asDouble()}; }
 
     auto operator<=>(double other) { return as<double>() <=> other; }
     auto operator<=>(std::integral auto other) { return value <=> other; }
