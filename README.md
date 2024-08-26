@@ -7,8 +7,9 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - e.g. USDC/USDT, STETH/ETH
 
 ### [In-Progress] Triangular arbitrage across multiple books for equivalent coins
-- Fast taker ordering to instantly fill spreads across 3 books.
+- Fast market orders to instantly capture opportunities across 3 books.
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
+- More latency sensitive than the first one
 
 ## Exchange
 Deribit with TCP and FIX protocol
