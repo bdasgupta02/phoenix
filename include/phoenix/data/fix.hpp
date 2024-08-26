@@ -320,11 +320,14 @@ struct FIXMessageBuilder
         builder.reset(seqNum, "D", client);
         builder.append("11", seqNum);
         builder.append("40", 1);
-        builder.append("44", order.price.str());
+        /*builder.append("44", order.price.str());*/
         builder.append("38", order.volume.str());
         builder.append("54", order.side);
         builder.append("55", order.symbol);
-        builder.append("59", 4); // FOK
+
+        if (order.isFOK)
+            builder.append("59", 4); // FOK
+
         return builder.serialize();
     }
 

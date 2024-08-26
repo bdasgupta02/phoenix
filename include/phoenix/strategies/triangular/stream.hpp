@@ -186,8 +186,6 @@ private:
 
                 auto reader = recvMsg();
 
-                [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
-
                 auto const& recvInstrument = reader.getString("55");
                 if (recvInstrument != FIXReader::UNKNOWN && !instrumentMap.contains(recvInstrument))
                 {

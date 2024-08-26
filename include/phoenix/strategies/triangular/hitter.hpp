@@ -28,6 +28,8 @@ struct Hitter : NodeBase
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
+        [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Hitter MDUpdate");
+
         auto const& instrumentMap = config->instrumentMap;
 
         auto const& symbol = marketData.getString("55");
@@ -122,27 +124,25 @@ struct Hitter : NodeBase
         // CASE 1
         if (btcUsdt.bid - triggerThreshold > btcUsdc.ask + triggerThreshold)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());
+            /*PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());*/
 
             double bridgeVolume = btcUsdt.bid.asDouble() * config->contractSize;
             if (usdtBalance < bridgeVolume)
                 return;
 
             // clang-format off
-            Order buyBtcUsdc{
-                .symbol = config->instrumentList[2],
-                .price = btcUsdc.ask,
-                .volume = 1.0,
-                .side = 1,
-                .isFOK = true
-            };
-
             Order sellBtcUsdt{
                 .symbol = config->instrumentList[0],
-                .price = btcUsdt.bid,
                 .volume = 1.0,
                 .side = 2,
-                .isFOK = true
+                .isLimit = false
+            };
+
+            Order buyBtcUsdc{
+                .symbol = config->instrumentList[2],
+                .volume = 1.0,
+                .side = 1,
+                .isLimit = false
             };
 
             Order limitBridge{
@@ -168,7 +168,7 @@ struct Hitter : NodeBase
         // CASE 2
         if (btcUsdc.bid - triggerThreshold > btcUsdt.ask + triggerThreshold)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());
+            /*PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());*/
 
             double bridgeVolume = btcUsdc.bid.asDouble() * config->contractSize;
             if (usdcBalance < bridgeVolume)
@@ -177,18 +177,16 @@ struct Hitter : NodeBase
             // clang-format off
             Order buyBtcUsdt{
                 .symbol = config->instrumentList[0],
-                .price = btcUsdt.ask,
                 .volume = 1.0,
                 .side = 1,
-                .isFOK = true
+                .isLimit = false
             };
 
             Order sellBtcUsdc{
                 .symbol = config->instrumentList[2],
-                .price = btcUsdc.bid,
                 .volume = 1.0,
                 .side = 2,
-                .isFOK = true
+                .isLimit = false
             };
 
             Order limitBridge{
@@ -292,13 +290,28 @@ struct Hitter : NodeBase
         // total fill
         if (status == 2)
         {
-            logOrder("[TOTAL FILL]", orderId, side, price, justExecuted);
-
             if (clOrderId.size() > 0 && clOrderId[0] != 't')
             {
+                unsigned const numFills = report.getNumber<unsigned>("1362");
+                double avgFillPrice = 0.0;
+                double totalQty = 0.0;
+                for (unsigned i = 0u; i < numFills; ++i)
+                {
+                    double const fillQty = report.getNumber<double>("1365", i);
+                    double const fillPrice = report.getNumber<double>("1364", i);
+                    totalQty += fillQty;
+                    avgFillPrice += (fillQty * fillPrice);
+                }
+                if (totalQty && avgFillPrice)
+                    avgFillPrice /= totalQty;
+
+                logOrder("[TOTAL FILL MARKET]", orderId, side, avgFillPrice, justExecuted);
+
                 auto const it = config->instrumentMap.find(symbol);
                 PHOENIX_LOG_VERIFY(handler, (it != config->instrumentMap.end()), "Symbol", symbol, "doesn't exist");
-                sentOrders[it->second].isFilled = true;
+                auto& sentOrder = sentOrders[it->second];
+                sentOrder.isFilled = true;
+                sentOrder.price = avgFillPrice;
 
                 if (++filled == 2u)
                 {
@@ -311,6 +324,7 @@ struct Hitter : NodeBase
             }
             else
             {
+                logOrder("[TOTAL FILL LIMIT]", orderId, side, price, justExecuted);
                 // assumption: qty == 1 for base asset, and using USDC/USDT for bridge
                 double bridgeVolume = std::round(bestPrices[0].bid.asDouble() * config->contractSize);
                 if (side == 1)
