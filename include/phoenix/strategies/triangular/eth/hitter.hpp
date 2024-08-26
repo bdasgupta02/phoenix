@@ -68,9 +68,9 @@ struct Hitter : NodeBase
         double const volume = config->volumeSize;
 
         // Buy ETH, Buy STETH for ETH, Sell STETH
-        if (steth.bid > eth.ask * bridge.bid)
+        if (steth.bid > eth.ask * bridge.ask)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", steth.bid.asDouble(), eth.ask.asDouble(), bridge.bid.asDouble());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", steth.bid.asDouble(), eth.ask.asDouble(), bridge.ask.asDouble());
 
             // clang-format off
             Order buyEth{
