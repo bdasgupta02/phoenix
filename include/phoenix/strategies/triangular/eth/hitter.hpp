@@ -225,11 +225,11 @@ private:
 
         // CASE 1
         if (eth.side == 1)
-            pnl += ((eth.price.asDouble() * bridge.price.asDouble()) - steth.price.asDouble()) * multiplier;
+            pnl += (eth.price.asDouble() - (steth.price.asDouble() / bridge.price.asDouble())) * multiplier;
 
         // CASE 2
         if (steth.side == 1)
-            pnl += (steth.price.asDouble() - (eth.price.asDouble() * bridge.price.asDouble())) * multiplier;
+            pnl += ((steth.price.asDouble() / bridge.price.asDouble()) - eth.price.asDouble()) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDC");
     }
