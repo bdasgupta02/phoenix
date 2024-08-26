@@ -14,9 +14,6 @@ struct Traits
 {
     using PriceType = Decimal<4u>;
     using VolumeType = Decimal<4u>;
-
-    // for all 3 instruments
-    static constexpr VolumeType CONTRACT_SIZE{"0.0001"};
 };
 
 // clang-format off
@@ -43,6 +40,6 @@ int main(int argc, char* argv[])
     auto* handler = graph.getHandler();
 
     handler->invoke(tag::Logger::Start{});
-    PHOENIX_LOG_INFO(handler, "Starting ETH/STETH/USDC Triangular Arbitrage System");
+    PHOENIX_LOG_INFO(handler, "Starting Triangular Arbitrage System");
     handler->invoke(tag::Stream::Start{});
 }

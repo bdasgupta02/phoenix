@@ -70,49 +70,50 @@ struct Hitter : NodeBase
         auto& usdcUsdt = bestPrices[1];
 
         ///////// FILL MODE (exiting stale position)
+        // disabled due to market orders
 
-        if (fillMode)
-        {
-            Order& btcUsdtSent = sentOrders[0];
-            Order& btcUsdcSent = sentOrders[2];
-            Order& usdcUsdtSent = sentOrders[1];
-
-            // CASE 1
-            if (btcUsdtSent.side == 2)
-            {
-                // bid always retries first
-                if (!btcUsdcSent.isFilled)
-                {
-                    btcUsdcSent.price = btcUsdc.ask;
-                    handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);
-                }
-
-                if (!btcUsdtSent.isFilled)
-                {
-                    btcUsdtSent.price = btcUsdt.bid;
-                    handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);
-                }
-            }
-
-            // CASE 2
-            if (btcUsdtSent.side == 1)
-            {
-                // bid always retries first
-                if (!btcUsdtSent.isFilled)
-                {
-                    btcUsdtSent.price = btcUsdt.ask;
-                    handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);
-                }
-
-                if (!btcUsdcSent.isFilled)
-                {
-                    btcUsdcSent.price = btcUsdc.bid;
-                    handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdcSent);
-                }
-            }
-
-            return;
-        }
+        /*if (fillMode)*/
+        /*{*/
+        /*    Order& btcUsdtSent = sentOrders[0];*/
+        /*    Order& btcUsdcSent = sentOrders[2];*/
+        /*    Order& usdcUsdtSent = sentOrders[1];*/
+        /**/
+        /*    // CASE 1*/
+        /*    if (btcUsdtSent.side == 2)*/
+        /*    {*/
+        /*        // bid always retries first*/
+        /*        if (!btcUsdcSent.isFilled)*/
+        /*        {*/
+        /*            btcUsdcSent.price = btcUsdc.ask;*/
+        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);*/
+        /*        }*/
+        /**/
+        /*        if (!btcUsdtSent.isFilled)*/
+        /*        {*/
+        /*            btcUsdtSent.price = btcUsdt.bid;*/
+        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);*/
+        /*        }*/
+        /*    }*/
+        /**/
+        /*    // CASE 2*/
+        /*    if (btcUsdtSent.side == 1)*/
+        /*    {*/
+        /*        // bid always retries first*/
+        /*        if (!btcUsdtSent.isFilled)*/
+        /*        {*/
+        /*            btcUsdtSent.price = btcUsdt.ask;*/
+        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);*/
+        /*        }*/
+        /**/
+        /*        if (!btcUsdcSent.isFilled)*/
+        /*        {*/
+        /*            btcUsdcSent.price = btcUsdc.bid;*/
+        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdcSent);*/
+        /*        }*/
+        /*    }*/
+        /**/
+        /*    return;*/
+        /*}*/
 
         ///////// TRIGGER
 
@@ -127,7 +128,7 @@ struct Hitter : NodeBase
             /*PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), btcUsdc.ask.str(), usdcUsdt.ask.str());*/
 
             double bridgeVolume = btcUsdt.bid.asDouble() * config->contractSize;
-            if (usdtBalance < bridgeVolume)
+            if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)
                 return;
 
             // clang-format off
@@ -171,7 +172,7 @@ struct Hitter : NodeBase
             /*PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btcUsdc.bid.str(), btcUsdt.ask.str(), usdcUsdt.bid.str());*/
 
             double bridgeVolume = btcUsdc.bid.asDouble() * config->contractSize;
-            if (usdcBalance < bridgeVolume)
+            if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)
                 return;
 
             // clang-format off
@@ -208,59 +209,6 @@ struct Hitter : NodeBase
                 usdcBalance -= bridgeVolume;
             }
         }
-
-        // ETH:
-        // - buy ETH/USDC ask, buy STETH/ETH ask sell STETH/USDC bid
-        //    : USDC > ETH > STETH > USDC
-        // - buy STETH/USDC ask, sell STETH/ETH bid, sell ETH/USDC, bid
-        //    : USDC > STETH > ETH > USDC
-
-        // the variables below are:
-        // - eth: ETH/USDC
-        // - steth: STETH/USDC
-        // - bridge: STETH/ETH
-
-        // - todo: 2nd level trigger for lower risk
-
-        /*auto& eth = bestPrices[0];*/
-        /*auto& steth = bestPrices[1];*/
-        /*auto& bridge = bestPrices[2];*/
-        /**/
-        /*PHOENIX_LOG_DEBUG(*/
-        /*    handler,*/
-        /*    "[MD]",*/
-        /*    symbol,*/
-        /*    "[ETH]",*/
-        /*    eth.bid.str(),*/
-        /*    eth.ask.str(),*/
-        /*    "[STETH]",*/
-        /*    steth.bid.str(),*/
-        /*    steth.ask.str(),*/
-        /*    "[BRIDGE]",*/
-        /*    bridge.bid.str(),*/
-        /*    bridge.ask.str());*/
-        /**/
-        /*if (eth.ask * bridge.ask < steth.bid && eth.ask < steth.bid)*/
-        /*{*/
-        /*    PHOENIX_LOG_INFO(handler, "OPP ETH");*/
-        /*    handler->invoke(*/
-        /*        tag::Stream::TakeMarketOrders{},*/
-        /*        false,*/
-        /*        Order{.symbol = config->instrumentList[0], .volume = Volume{1.0}, .side = 1},*/
-        /*        Order{.symbol = config->instrumentList[2], .volume = Volume{1.0}, .side = 1},*/
-        /*        Order{.symbol = config->instrumentList[1], .volume = Volume{1.0}, .side = 2});*/
-        /*}*/
-        /**/
-        /*if (steth.ask < eth.bid * bridge.bid && steth.ask < eth.bid)*/
-        /*{*/
-        /*    PHOENIX_LOG_INFO(handler, "OPP STETH");*/
-        /*    handler->invoke(*/
-        /*        tag::Stream::TakeMarketOrders{},*/
-        /*        true,*/
-        /*        Order{.symbol = config->instrumentList[1], .volume = Volume{1.0}, .side = 1},*/
-        /*        Order{.symbol = config->instrumentList[2], .volume = Volume{1.0}, .side = 2},*/
-        /*        Order{.symbol = config->instrumentList[0], .volume = Volume{1.0}, .side = 2});*/
-        /*}*/
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -326,6 +274,7 @@ struct Hitter : NodeBase
             {
                 logOrder("[TOTAL FILL LIMIT]", orderId, side, price, justExecuted);
                 // assumption: qty == 1 for base asset, and using USDC/USDT for bridge
+                // e.g. this is gonna be 6 for BTC
                 double bridgeVolume = std::round(bestPrices[0].bid.asDouble() * config->contractSize);
                 if (side == 1)
                     usdcBalance += bridgeVolume;
@@ -381,7 +330,6 @@ private:
     {
         Order& btcUsdtSent = sentOrders[0];
         Order& btcUsdcSent = sentOrders[2];
-        Order& usdcUsdtSent = sentOrders[1];
 
         // CASE 1
         if (btcUsdtSent.side == 2)
