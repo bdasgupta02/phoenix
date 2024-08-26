@@ -13,6 +13,7 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 build
+logs
 
 # CMake build directories
 [Bb][Uu][Ii][Ll][Dd]*/
