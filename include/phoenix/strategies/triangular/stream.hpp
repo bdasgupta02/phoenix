@@ -202,7 +202,7 @@ private:
                 auto const& msgType = reader.getMessageType();
 
                 // market data update
-                if (msgType == "X") [[likely]]
+                if (msgType == "X" or msgType == "W") [[likely]]
                 {
                     handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), true);
                     continue;

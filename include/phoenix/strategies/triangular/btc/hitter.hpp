@@ -41,7 +41,7 @@ struct Hitter : NodeBase
         ///////// UPDATE PRICES
         Price newBid;
         Price newAsk;
-        std::size_t const numUpdates = marketData.getFieldSize("269");
+        std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
         for (std::size_t i = 0u; i < numUpdates; ++i)
         {
             unsigned const typeField = marketData.getNumber<unsigned>("269", i);
