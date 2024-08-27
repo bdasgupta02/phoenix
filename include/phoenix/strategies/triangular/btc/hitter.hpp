@@ -70,9 +70,9 @@ struct Hitter : NodeBase
         double const contract = config->contractSize;
 
         // Buy BTC/T, Sell BTC/C, Sell USDC for USDT
-        if (btcc.bid > btct.ask * usdc.bid)
+        if (btcc.bid - threshold > btct.ask * usdc.bid)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btct.ask.asDouble(), btcc.bid.asDouble(), usdc.bid.asDouble());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcc.ask.asDouble(), '>', btct.bid.asDouble(), '*', usdc.bid.asDouble());
 
             double const rebalancedVol = std::round(volume * btct.ask.asDouble() * contract);
 
@@ -110,9 +110,9 @@ struct Hitter : NodeBase
         }
 
         // Buy BTC/C, Sell BTC/T, Buy USDC for USDT
-        if (btct.bid * usdc.ask > btcc.ask)
+        if (btct.bid * usdc.ask > btcc.ask + threshold)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btct.bid.asDouble(), btcc.ask.asDouble(), usdc.ask.asDouble());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btct.bid.asDouble(), '>', btcc.ask.asDouble(), '*', usdc.ask.asDouble());
 
             double const rebalancedVol = std::round(volume * btct.bid.asDouble() * contract);
 
@@ -225,19 +225,19 @@ private:
         double btcc = sentOrders[1].price.asDouble();
         double usdc = sentOrders[2].price.asDouble();
 
-        double const contractSize = config->contractSize;
-        double const volume = config->volumeSize;
-        double const multiplier = contractSize * volume;
+	double const contractSize = config->contractSize;
+	double const volume = config->volumeSize;
+	double const multiplier = contractSize * volume; 
 
         // Buy BTC/T
         if (sentOrders[0].side == 1)
-            pnl += ((btcc * usdc) - btct) * multiplier;
+            pnl += (btcc - (btct * usdc)) * multiplier;
 
-        // Sell BTC/C
+        // Buy BTC/C
         else
-            pnl += (btct - (btcc * usdc)) * multiplier;
+            pnl += ((btct * usdc) - btcc) * multiplier;
 
-        PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDT");
+        PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "captured BTC/USDC edge");
     }
 
     [[gnu::hot, gnu::always_inline]]
