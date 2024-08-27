@@ -258,27 +258,15 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
-    inline std::string_view marketDataRequestIncremental(std::size_t seqNum, std::string_view symbol)
-    {
-        builder.reset(seqNum, "V", client);
-        builder.append("262", seqNum);
-        builder.append("263", 1);
-        builder.append("265", 1);
-        builder.append("55", symbol);
-        builder.append("267", 2);
-        builder.append("269", 0);
-        builder.append("269", 1);
-        return builder.serialize();
-    }
-
     inline std::string_view marketDataIncrementalTriple(std::size_t seqNum, std::vector<std::string> const& instruments)
     {
         builder.reset(seqNum, "V", client);
         builder.append("262", seqNum);
         builder.append("263", 1);
         builder.append("265", 1);
+        builder.append("264", "(1)");
 
-        builder.append("146", 3);
+        builder.append("146", instruments.size());
         for (auto const& symbol : instruments)
             builder.append("55", symbol);
 
