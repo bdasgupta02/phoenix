@@ -71,10 +71,10 @@ struct Hitter : NodeBase
 
         // Buy BTC/T, Sell BTC/C, Sell USDC for USDT
         // T > BTC > C > T
-        if (btcc.bid - threshold > btct.ask * usdc.bid)
+        if ((btcc.bid * usdc.bid) - threshold > btct.ask)
         {
             PHOENIX_LOG_INFO(
-                handler, "[OPP CASE 1]", btcc.bid.asDouble(), '>', btct.ask.asDouble(), '*', usdc.bid.asDouble());
+                handler, "[OPP CASE 1]", btcc.ask.asDouble(), '*', usdc.bid.asDouble(), '>', btct.bid.asDouble());
 
             double const rebalancedVol = std::round(volume * btct.ask.asDouble() * contract);
 
@@ -112,12 +112,12 @@ struct Hitter : NodeBase
         }
 
         // Buy BTC/C, Sell BTC/T, Buy USDC for USDT
-        if ((btct.bid * usdc.ask) - threshold > btcc.ask)
+        if (btct.bid - threshold > (btcc.ask * usdc.ask))
         {
             PHOENIX_LOG_INFO(
-                handler, "[OPP CASE 2]", btct.bid.asDouble(), '*', usdc.ask.asDouble(), '>', btcc.ask.asDouble());
+                handler, "[OPP CASE 2]", btct.bid.asDouble(), '>', btcc.ask.asDouble(), '*', usdc.ask.asDouble());
 
-            double const rebalancedVol = std::round(volume * btct.bid.asDouble() * contract);
+            double const rebalancedVol = std::round(volume * btcc.ask.asDouble() * contract);
 
             // clang-format off
             Order buyBtcc{
@@ -234,11 +234,11 @@ private:
 
         // Buy BTC/T
         if (sentOrders[0].side == 1)
-            pnl += (btcc - (btct * usdc)) * multiplier;
+            pnl += ((btcc * usdc) - btct) * multiplier;
 
         // Buy BTC/C
         else
-            pnl += ((btct * usdc) - btcc) * multiplier;
+            pnl += (btct - (btcc * usdc)) * multiplier;
 
         PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDT");
     }
