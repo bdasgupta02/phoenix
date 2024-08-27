@@ -264,7 +264,7 @@ struct FIXMessageBuilder
         builder.append("262", seqNum);
         builder.append("263", 1);
         builder.append("265", 1);
-        builder.append("264", "(1)");
+        builder.append("264", 1);
 
         builder.append("146", instruments.size());
         for (auto const& symbol : instruments)
