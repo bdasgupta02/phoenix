@@ -70,10 +70,11 @@ struct Hitter : NodeBase
         double const contract = config->contractSize;
 
         // Buy BTC/T, Sell BTC/C, Sell USDC for USDT
-        if (btcc.bid - threshold > btct.ask * usdc.bid)
+        // T > BTC > C > T
+        if ((btcc.bid * usdc.bid) - threshold > btct.ask)
         {
             PHOENIX_LOG_INFO(
-                handler, "[OPP CASE 1]", btcc.ask.asDouble(), '>', btct.bid.asDouble(), '*', usdc.bid.asDouble());
+                handler, "[OPP CASE 1]", btcc.ask.asDouble(), '*', usdc.bid.asDouble(), '>', btct.bid.asDouble());
 
             double const rebalancedVol = std::round(volume * btct.ask.asDouble() * contract);
 
@@ -111,7 +112,7 @@ struct Hitter : NodeBase
         }
 
         // Buy BTC/C, Sell BTC/T, Buy USDC for USDT
-        if (btct.bid * usdc.ask > btcc.ask + threshold)
+        if (btct.bid - threshold > (btcc.ask + usdc.ask))
         {
             PHOENIX_LOG_INFO(
                 handler, "[OPP CASE 2]", btct.bid.asDouble(), '>', btcc.ask.asDouble(), '*', usdc.ask.asDouble());
@@ -233,13 +234,13 @@ private:
 
         // Buy BTC/T
         if (sentOrders[0].side == 1)
-            pnl += (btcc - (btct * usdc)) * multiplier;
+            pnl += ((btcc * usdc) - btct) * multiplier;
 
         // Buy BTC/C
         else
-            pnl += ((btct * usdc) - btcc) * multiplier;
+            pnl += (btct - (btcc * usdc)) * multiplier;
 
-        PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "captured BTC/USDC edge");
+        PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDT");
     }
 
     [[gnu::hot, gnu::always_inline]]
