@@ -88,7 +88,7 @@ struct Hitter : NodeBase
                 .isLimit = false
             };
 
-            Order bridge{
+            Order buyBridge{
                 .symbol = config->instrumentList[1],
                 .volume = volume,
                 .side = 1,
@@ -96,10 +96,10 @@ struct Hitter : NodeBase
             };
             // clang-format on
 
-            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyEth, sellSteth, bridge))
+            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyEth, sellSteth, buyBridge))
             {
                 sentOrders[0] = buyEth;
-                sentOrders[1] = bridge;
+                sentOrders[1] = buyBridge;
                 sentOrders[2] = sellSteth;
                 fillMode = true;
                 filled = 0u;
@@ -126,7 +126,7 @@ struct Hitter : NodeBase
                 .isLimit = false
             };
 
-            Order bridge{
+            Order sellBridge{
                 .symbol = config->instrumentList[1],
                 .volume = volume,
                 .side = 2,
@@ -134,10 +134,10 @@ struct Hitter : NodeBase
             };
             // clang-format on
 
-            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buySteth, sellEth, bridge))
+            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buySteth, sellEth, sellBridge))
             {
                 sentOrders[0] = sellEth;
-                sentOrders[1] = bridge;
+                sentOrders[1] = sellBridge;
                 sentOrders[2] = buySteth;
                 fillMode = true;
                 filled = 0u;

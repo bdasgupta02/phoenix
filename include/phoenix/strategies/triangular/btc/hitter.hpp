@@ -3,214 +3,149 @@
 #include "phoenix/common/logger.hpp"
 #include "phoenix/data/fix.hpp"
 #include "phoenix/data/orders.hpp"
+#include "phoenix/graph/router_handler.hpp"
 #include "phoenix/tags.hpp"
 
 #include <array>
 #include <cstdint>
 #include <limits>
 
-// TODO: balance check and sleep
-// TODO: 0.0 threshold low latency
-// TODO: diming rebalancing algorithm - bid = ask - 1, ask = bid + 1
-//        - dime quotes proven to work
-
 namespace phoenix::triangular {
 
 template<typename NodeBase>
 struct Hitter : NodeBase
 {
-    using NodeBase::NodeBase;
+    using Router = NodeBase::Router;
+    using Config = NodeBase::Config;
     using Traits = NodeBase::Traits;
     using Price = NodeBase::Traits::PriceType;
     using Volume = NodeBase::Traits::VolumeType;
     using PriceValue = NodeBase::Traits::PriceType::ValueType;
     using Order = SingleOrder<Traits>;
 
+    Hitter(Config const& config, RouterHandler<Router>& handler)
+        : NodeBase(config, handler)
+        , config{&config}
+        , handler{&handler}
+        , threshold{config.triggerThreshold}
+    {}
+
     [[gnu::hot, gnu::always_inline]]
     inline void handle(tag::Hitter::MDUpdate, FIXReader&& marketData, bool const update = true)
     {
-        auto* handler = this->getHandler();
-        auto* config = this->getConfig();
-        [[maybe_unused]] auto timer = handler->retrieve(tag::Profiler::Guard{}, "Hitter MDUpdate");
-
         auto const& instrumentMap = config->instrumentMap;
-
         auto const& symbol = marketData.getString("55");
         auto const it = instrumentMap.find(symbol);
         PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
 
         ///////// UPDATE PRICES
-
         Price newBid;
         Price newAsk;
-
         std::size_t const numUpdates = marketData.getFieldSize("269");
         for (std::size_t i = 0u; i < numUpdates; ++i)
         {
             unsigned const typeField = marketData.getNumber<unsigned>("269", i);
-
             if (typeField == 0u)
                 newBid.minOrZero(marketData.getDecimal<Price>("270", i));
-
             if (typeField == 1u)
                 newAsk.minOrZero(marketData.getDecimal<Price>("270", i));
         }
 
         auto& instrumentPrices = bestPrices[it->second];
-
         if (newBid)
             instrumentPrices.bid = newBid;
-
         if (newAsk)
             instrumentPrices.ask = newAsk;
 
-        // BTC (with capital in USDC and USDT):
-        // CASE 1 - buy BTC/USDC, sell BTC/USDT, buy USDC/USDT
-        // CASE 2 - buy BTC/USDT, sell BTC/USDC, sell USDC/USDT
-
-        auto& btcUsdt = bestPrices[0];
-        auto& btcUsdc = bestPrices[2];
-        auto& usdcUsdt = bestPrices[1];
-
-        ///////// FILL MODE (exiting stale position)
-        // disabled due to market orders
-
-        /*if (fillMode)*/
-        /*{*/
-        /*    Order& btcUsdtSent = sentOrders[0];*/
-        /*    Order& btcUsdcSent = sentOrders[2];*/
-        /*    Order& usdcUsdtSent = sentOrders[1];*/
-        /**/
-        /*    // CASE 1*/
-        /*    if (btcUsdtSent.side == 2)*/
-        /*    {*/
-        /*        // bid always retries first*/
-        /*        if (!btcUsdcSent.isFilled)*/
-        /*        {*/
-        /*            btcUsdcSent.price = btcUsdc.ask;*/
-        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);*/
-        /*        }*/
-        /**/
-        /*        if (!btcUsdtSent.isFilled)*/
-        /*        {*/
-        /*            btcUsdtSent.price = btcUsdt.bid;*/
-        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);*/
-        /*        }*/
-        /*    }*/
-        /**/
-        /*    // CASE 2*/
-        /*    if (btcUsdtSent.side == 1)*/
-        /*    {*/
-        /*        // bid always retries first*/
-        /*        if (!btcUsdtSent.isFilled)*/
-        /*        {*/
-        /*            btcUsdtSent.price = btcUsdt.ask;*/
-        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdtSent);*/
-        /*        }*/
-        /**/
-        /*        if (!btcUsdcSent.isFilled)*/
-        /*        {*/
-        /*            btcUsdcSent.price = btcUsdc.bid;*/
-        /*            handler->retrieve(tag::Stream::TakeMarketOrders{}, btcUsdcSent);*/
-        /*        }*/
-        /*    }*/
-        /**/
-        /*    return;*/
-        /*}*/
-
         ///////// TRIGGER
-
+        // TODO: min gap should be contract size
         if (!update)
             return;
 
-        double const triggerThreshold = config->triggerThreshold;
+        auto& btct = bestPrices[0];
+        auto& btcc = bestPrices[1];
+        auto& usdc = bestPrices[2];
 
-        Price const usdAsk = usdcUsdt.bid + 0.0001;
-        Price const usdBid = usdcUsdt.ask - 0.0001;
+        double const volume = config->volumeSize;
+        double const contract = config->contractSize;
 
-        // CASE 1
-        if (btcUsdt.bid - triggerThreshold > btcUsdc.ask * usdcUsdt.ask)
+        // Buy BTC/T, Sell BTC/C, Sell USDC for USDT
+        if (btcc.bid > btct.ask * usdc.bid)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btcUsdt.bid.str(), (btcUsdc.ask * usdcUsdt.ask).str());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", btct.ask.asDouble(), btcc.bid.asDouble(), usdc.bid.asDouble());
 
-            double bridgeVolume = btcUsdt.bid.asDouble() * config->contractSize;
-            /*if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)*/
-            /*    return;*/
+            double const rebalancedVol = std::round(volume * btct.ask.asDouble() * contract);
 
             // clang-format off
-            Order sellBtcUsdt{
+            Order buyBtct{
                 .symbol = config->instrumentList[0],
-                .volume = 1.0,
+                .volume = volume,
+                .side = 1,
+                .isLimit = false
+            };
+
+            Order sellBtcc{
+                .symbol = config->instrumentList[1],
+                .volume = volume,
                 .side = 2,
                 .isLimit = false
             };
 
-            Order buyBtcUsdc{
+            Order sellUsdc{
                 .symbol = config->instrumentList[2],
-                .volume = 1.0,
-                .side = 1,
-                .isLimit = false
-            };
-
-            Order bridge{
-                .symbol = config->instrumentList[1],
-                .volume = bridgeVolume,
-                .side = 1,
+                .volume = rebalancedVol,
+                .side = 2,
                 .isLimit = false
             };
             // clang-format on
 
-            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcUsdc, sellBtcUsdt, bridge))
+            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtct, sellBtcc, sellUsdc))
             {
-                sentOrders[0] = sellBtcUsdt;
-                sentOrders[1] = bridge;
-                sentOrders[2] = buyBtcUsdc;
+                sentOrders[0] = buyBtct;
+                sentOrders[1] = sellBtcc;
+                sentOrders[2] = sellUsdc;
                 fillMode = true;
                 filled = 0u;
-                usdtBalance -= bridgeVolume;
             }
         }
 
-        // CASE 2
-        if (btcUsdc.bid * usdcUsdt.bid > btcUsdt.ask + triggerThreshold)
+        // Buy BTC/C, Sell BTC/T, Buy USDC for USDT
+        if (btct.bid * usdc.ask > btcc.ask)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", (btcUsdc.bid * usdcUsdt.bid).str(), btcUsdt.ask.str());
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", btct.bid.asDouble(), btcc.ask.asDouble(), usdc.ask.asDouble());
 
-            double bridgeVolume = btcUsdc.bid.asDouble() * config->contractSize;
-            /*if (usdtBalance < bridgeVolume || usdcBalance < bridgeVolume)*/
-            /*    return;*/
+            double const rebalancedVol = std::round(volume * btct.bid.asDouble() * contract);
 
             // clang-format off
-            Order buyBtcUsdt{
-                .symbol = config->instrumentList[0],
-                .volume = 1.0,
+            Order buyBtcc{
+                .symbol = config->instrumentList[1],
+                .volume = volume,
                 .side = 1,
                 .isLimit = false
             };
 
-            Order sellBtcUsdc{
-                .symbol = config->instrumentList[2],
-                .volume = 1.0,
+            Order sellBtct{
+                .symbol = config->instrumentList[0],
+                .volume = volume,
                 .side = 2,
                 .isLimit = false
             };
 
-            Order bridge{
-                .symbol = config->instrumentList[1],
-                .volume = bridgeVolume,
-                .side = 2,
+            Order buyUsdc{
+                .symbol = config->instrumentList[2],
+                .volume = rebalancedVol,
+                .side = 1,
                 .isLimit = false
             };
             // clang-format on
 
-            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcUsdt, sellBtcUsdc, bridge))
+            if (handler->retrieve(tag::Stream::TakeMarketOrders{}, buyBtcc, sellBtct, buyUsdc))
             {
-                sentOrders[0] = buyBtcUsdt;
-                sentOrders[1] = bridge;
-                sentOrders[2] = sellBtcUsdc;
+                sentOrders[0] = sellBtct;
+                sentOrders[1] = buyBtcc;
+                sentOrders[2] = buyUsdc;
                 fillMode = true;
                 filled = 0u;
-                usdcBalance -= bridgeVolume;
             }
         }
     }
@@ -218,9 +153,6 @@ struct Hitter : NodeBase
     [[gnu::hot, gnu::always_inline]]
     inline void handle(tag::Hitter::ExecutionReport, FIXReader&& report)
     {
-        auto* handler = this->getHandler();
-        auto* config = this->getConfig();
-
         auto const& symbol = report.getString("55");
         auto status = report.getNumber<unsigned>("39");
         auto const& orderId = report.getString("11");
@@ -231,84 +163,83 @@ struct Hitter : NodeBase
         auto price = report.getDecimal<Price>("44");
         PHOENIX_LOG_VERIFY(handler, (!price.error && !remaining.error), "Decimal parse error");
 
-        // new order
-        if (status == 0)
-            logOrder("[NEW ORDER]", orderId, side, price, remaining);
-
-        // partial fill
-        if (status == 1)
-            logOrder("[PARTIAL FILL]", orderId, side, price, justExecuted);
-
-        // total fill
-        if (status == 2)
+        switch (status)
         {
-            if (clOrderId.size() > 0 && clOrderId[0] != 't')
+        case 0: logOrder("[NEW ORDER]", orderId, side, price, remaining); break;
+
+        case 1: logOrder("[PARTIAL FILL]", orderId, side, price, justExecuted); break;
+
+        case 2:
+        {
+            unsigned const numFills = report.getNumber<unsigned>("1362");
+            double avgFillPrice = 0.0;
+            double totalQty = 0.0;
+            for (unsigned i = 0u; i < numFills; ++i)
             {
-                unsigned const numFills = report.getNumber<unsigned>("1362");
-                double avgFillPrice = 0.0;
-                double totalQty = 0.0;
-                for (unsigned i = 0u; i < numFills; ++i)
-                {
-                    double const fillQty = report.getNumber<double>("1365", i);
-                    double const fillPrice = report.getNumber<double>("1364", i);
-                    totalQty += fillQty;
-                    avgFillPrice += (fillQty * fillPrice);
-                }
-                if (totalQty && avgFillPrice)
-                    avgFillPrice /= totalQty;
-
-                logOrder("[TOTAL FILL MARKET]", orderId, side, avgFillPrice, justExecuted);
-
-                auto const it = config->instrumentMap.find(symbol);
-                PHOENIX_LOG_VERIFY(handler, (it != config->instrumentMap.end()), "Symbol", symbol, "doesn't exist");
-                auto& sentOrder = sentOrders[it->second];
-                sentOrder.isFilled = true;
-                sentOrder.price = avgFillPrice;
-
-                if (++filled == 3u)
-                {
-                    fillMode = false;
-                    filled = 0u;
-                    PHOENIX_LOG_INFO(handler, "All orders filled");
-                    modifyUnrealizedPnl();
-                    return;
-                }
+                double const fillQty = report.getNumber<double>("1365", i);
+                double const fillPrice = report.getNumber<double>("1364", i);
+                totalQty += fillQty;
+                avgFillPrice += (fillQty * fillPrice);
             }
-            else
+            if (totalQty && avgFillPrice)
+                avgFillPrice /= totalQty;
+
+            logOrder("[FILL]", orderId, side, avgFillPrice, justExecuted);
+
+            auto const it = config->instrumentMap.find(symbol);
+            PHOENIX_LOG_VERIFY(handler, (it != config->instrumentMap.end()), "Symbol", symbol, "doesn't exist");
+            auto& sentOrder = sentOrders[it->second];
+            sentOrder.isFilled = true;
+            sentOrder.price = avgFillPrice;
+
+            if (++filled == 3u)
             {
-                logOrder("[TOTAL FILL LIMIT]", orderId, side, price, justExecuted);
-                // assumption: qty == 1 for base asset, and using USDC/USDT for bridge
-                // e.g. this is gonna be 6 for BTC
-                double bridgeVolume = std::round(bestPrices[0].bid.asDouble() * config->contractSize);
-                if (side == 1)
-                    usdcBalance += bridgeVolume;
-                else
-                    usdtBalance += bridgeVolume;
+                fillMode = false;
+                filled = 0u;
+                PHOENIX_LOG_INFO(handler, "All orders filled");
+                updatePnl();
             }
         }
+        break;
 
-        // cancelled
-        if (status == 4)
-            logOrder("[CANCELLED]", orderId, side, price, remaining);
+        case 4: logOrder("[CANCELLED]", orderId, side, price, remaining); break;
 
-        // rejected
-        if (status == 8)
+        case 8:
         {
             auto reason = report.getStringView("103");
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
-            PHOENIX_LOG_WARN(handler, "[BALANCES]", "USDC:", usdcBalance, "USDT:", usdtBalance);
         }
+        break;
+
+        default: PHOENIX_LOG_WARN(handler, "Other status type", status); break;
+        };
     }
 
-    inline void handle(tag::Hitter::InitBalances)
-    {
-        auto* handler = this->getHandler();
-        usdcBalance = handler->retrieve(tag::Stream::GetBalance{}, "USDC");
-        usdtBalance = handler->retrieve(tag::Stream::GetBalance{}, "USDT");
-        PHOENIX_LOG_INFO(this->getHandler(), "[USD BALANCES]", "USDC:", usdcBalance, "USDT:", usdtBalance);
-    }
+    inline void handle(tag::Hitter::InitBalances) {}
 
 private:
+    [[gnu::hot, gnu::always_inline]]
+    inline void updatePnl()
+    {
+        double btct = sentOrders[0].price.asDouble();
+        double btcc = sentOrders[1].price.asDouble();
+        double usdc = sentOrders[2].price.asDouble();
+
+        double const contractSize = config->contractSize;
+        double const volume = config->volumeSize;
+        double const multiplier = contractSize * volume;
+
+        // Buy BTC/T
+        if (sentOrders[0].side == 1)
+            pnl += ((btcc * usdc) - btct) * multiplier;
+
+        // Sell BTC/C
+        else
+            pnl += (btct - (btcc * usdc)) * multiplier;
+
+        PHOENIX_LOG_INFO(handler, "[PNL]", pnl, "USDT");
+    }
+
     [[gnu::hot, gnu::always_inline]]
     inline void logOrder(
         std::string_view type,
@@ -318,42 +249,16 @@ private:
         Volume volume,
         std::string_view rejectReason = "")
     {
-        auto* handler = this->getHandler();
         PHOENIX_LOG_INFO(
             handler,
             type,
             orderId,
-            side == 1 ? "BID" : "ASK",
+            side == 1 ? "BUY" : "SELL",
             volume.asDouble(),
             '@',
             price.asDouble(),
             rejectReason.empty() ? "" : "with reason",
             rejectReason);
-    }
-
-    [[gnu::hot, gnu::always_inline]]
-    inline void modifyUnrealizedPnl()
-    {
-        Order& btcUsdtSent = sentOrders[0];
-        Order& btcUsdcSent = sentOrders[2];
-
-        // CASE 1
-        if (btcUsdtSent.side == 2)
-        {
-            double const priceDiff = btcUsdtSent.price.asDouble() - btcUsdcSent.price.asDouble();
-            double const withContract = priceDiff * 0.0001;
-            unrealizedPnl += withContract;
-        }
-
-        // CASE 2
-        if (btcUsdtSent.side == 1)
-        {
-            double const priceDiff = btcUsdcSent.price.asDouble() - btcUsdtSent.price.asDouble();
-            double const withContract = priceDiff * 0.0001;
-            unrealizedPnl += withContract;
-        }
-
-        PHOENIX_LOG_INFO(this->getHandler(), "[PNL]", "Unrealized:", unrealizedPnl);
     }
 
     struct InstrumentTopLevel
@@ -362,18 +267,17 @@ private:
         Price ask{std::numeric_limits<PriceValue>::max()};
     };
 
-    std::array<InstrumentTopLevel, 3u> bestPrices;
+    RouterHandler<Router>* const handler;
+    Config const* const config;
+    Price threshold;
 
-    // since market orders are broken in API
-    // TODO: potential race condition with exchange when retrying
+    std::array<InstrumentTopLevel, 3u> bestPrices;
     std::array<Order, 3u> sentOrders;
+
     bool fillMode = false;
     unsigned filled = 0u;
 
-    double unrealizedPnl = 0.0;
-
-    double usdcBalance;
-    double usdtBalance;
+    double pnl = 0.0;
 };
 
 } // namespace phoenix::triangular
