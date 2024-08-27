@@ -74,7 +74,7 @@ struct Hitter : NodeBase
         if (btcc.bid - threshold > btct.ask * usdc.bid)
         {
             PHOENIX_LOG_INFO(
-                handler, "[OPP CASE 1]", btcc.ask.asDouble(), '*', usdc.bid.asDouble(), '>', btct.bid.asDouble());
+                handler, "[OPP CASE 1]", btcc.ask.asDouble(), '>', btct.bid.asDouble(), '*', usdc.bid.asDouble());
 
             double const rebalancedVol = std::round(volume * btct.ask.asDouble() * contract);
 
