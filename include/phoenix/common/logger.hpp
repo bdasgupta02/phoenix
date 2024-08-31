@@ -140,7 +140,7 @@ private:
 
     void loggerThread()
     {
-        auto const flushInterval = std::chrono::milliseconds(100);
+        auto const flushInterval = std::chrono::milliseconds(500);
         auto lastFlush = std::chrono::system_clock::now();
         Entry entry;
 
@@ -176,6 +176,8 @@ private:
                 logFile->flush();
                 lastFlush = now;
             }
+            else
+                std::this_thread::sleep_for(flushInterval);
 
             std::this_thread::yield();
         }

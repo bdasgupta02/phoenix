@@ -43,6 +43,7 @@ struct Config
                 ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Asset contract size")
                 ("volume-size", po::value<double>(&volumeSize)->default_value(volumeSize), "Asset contract size")
                 ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
+                ("cpu", po::value<int>(&cpu)->default_value(cpu), "CPU exclusive affinity index (< 0 for shared core)")
                 ("qty-threshold", po::value<double>(&qtyThreshold)->default_value(qtyThreshold), "Min quantity to register top level prices")
             ;
             // clang-format on
@@ -103,6 +104,7 @@ struct Config
 
     bool profiled = false;
     bool colo = false;
+    int cpu = -1;
 };
 
 } // namespace phoenix::triangular

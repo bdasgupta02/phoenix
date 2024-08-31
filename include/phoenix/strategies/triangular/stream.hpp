@@ -97,6 +97,10 @@ struct Stream : NodeBase
                     io::connect(sockets[i], endpoints);
                 }
             }
+
+            for (unsigned i = 0u; i < 3u; ++i)
+                sockets[i].set_option(io::ip::tcp::no_delay(true));
+
             PHOENIX_LOG_INFO(handler, "Connected successfully");
             isRunning = true;
         }
@@ -202,6 +206,7 @@ private:
 
         while (isRunning)
         {
+            [[maybe_unused]] auto profiler = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
             socketIdx = ++socketIdx % 3u;
             try
             {
@@ -237,6 +242,7 @@ private:
                 // market data update
                 if (msgType == "X" or msgType == "W") [[likely]]
                 {
+                    [[maybe_unused]] auto mdProfiler = handler->retrieve(tag::Profiler::Guard{}, "MDProfiler");
                     handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), true);
                     continue;
                 }

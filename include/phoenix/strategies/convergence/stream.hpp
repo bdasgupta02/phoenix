@@ -68,6 +68,7 @@ struct Stream : NodeBase
             auto endpoints = resolver.resolve(config->host, config->port);
             io::connect(socket, endpoints);
             PHOENIX_LOG_INFO(handler, "Connected successfully");
+            socket.set_option(io::ip::tcp::no_delay(true));
             isRunning = true;
         }
         catch (std::exception const& e)
