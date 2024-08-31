@@ -154,8 +154,8 @@ struct Stream : NodeBase
     {
         auto msg = fixBuilder.userRequest(nextSeqNum, currency, this->getConfig()->username);
         forceSendMsg(msg);
-        auto reader = recvMsg();
-        PHOENIX_LOG_VERIFY(this->getHandler(), (reader && reader->isMessageType("BF")), "Invalid message type");
+        auto reader = forceReadMsg();
+        PHOENIX_LOG_VERIFY(this->getHandler(), reader.isMessageType("BF"), "Invalid message type");
         return reader.template getNumber<double>("100001");
     }
 
@@ -278,9 +278,9 @@ private:
         auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 30);
         forceSendMsg(msg);
 
-        auto reader = recvMsg();
+        auto reader = forceReadMsg();
 
-        PHOENIX_LOG_VERIFY(handler, (reader && reader->isMessageType("A")), "Login unsuccessful");
+        PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful");
         PHOENIX_LOG_INFO(handler, "Login successful");
     }
 
