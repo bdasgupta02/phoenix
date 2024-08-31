@@ -52,6 +52,7 @@ struct Config
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
                 ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
+                ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
             ;
             // clang-format on
 
@@ -106,6 +107,7 @@ struct Config
     bool aggressive = true;
     double positionBoundary = 20.0;
     bool profiled = false;
+    bool colo = false;
 };
 
 } // namespace phoenix
