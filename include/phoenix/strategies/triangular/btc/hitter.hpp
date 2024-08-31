@@ -28,6 +28,7 @@ struct Hitter : NodeBase
         , config{&config}
         , handler{&handler}
         , threshold{config.triggerThreshold}
+        , qtyThreshold{config.qtyThreshold}
     {}
 
     [[gnu::hot, gnu::always_inline]]
@@ -38,6 +39,11 @@ struct Hitter : NodeBase
         auto const it = instrumentMap.find(symbol);
         PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
 
+        auto const checkQty = [it, this](double qty)
+        {
+            return it->second == 2 || ((it->second == 0 || it->second == 1) && qty > qtyThreshold);
+        };
+
         ///////// UPDATE PRICES
         Price newBid;
         Price newAsk;
@@ -45,10 +51,16 @@ struct Hitter : NodeBase
         for (std::size_t i = 0u; i < numUpdates; ++i)
         {
             unsigned const typeField = marketData.getNumber<unsigned>("269", i);
-            if (typeField == 0u)
+            unsigned const qty = marketData.getNumber<double>("270", i);
+            bool const validQty = checkQty(qty);
+
+            if (typeField == 0u && validQty)
                 newBid.minOrZero(marketData.getDecimal<Price>("270", i));
-            if (typeField == 1u)
+            if (typeField == 1u && validQty)
                 newAsk.minOrZero(marketData.getDecimal<Price>("270", i));
+
+            if (!validQty)
+                PHOENIX_LOG_WARN(handler, "Skipping tiny entry of", qty, "units for", symbol);
         }
 
         auto& instrumentPrices = bestPrices[it->second];
@@ -57,10 +69,18 @@ struct Hitter : NodeBase
         if (newAsk)
             instrumentPrices.ask = newAsk;
 
+        if (!newBid && !newAsk)
+        {
+            PHOENIX_LOG_WARN(handler, "Invalid prices");
+            return;
+        }
+
         ///////// TRIGGER
         // TODO: min gap should be contract size
-        if (!update)
+        if (!update || fillMode)
             return;
+
+        PHOENIX_LOG_VERIFY(handler, (instrumentPrices.bid < instrumentPrices.ask), "Overlapping prices");
 
         auto& btct = bestPrices[0];
         auto& btcc = bestPrices[1];
@@ -273,6 +293,7 @@ private:
     RouterHandler<Router>* const handler;
     Config const* const config;
     Price threshold;
+    double qtyThreshold;
 
     std::array<InstrumentTopLevel, 3u> bestPrices;
     std::array<Order, 3u> sentOrders;

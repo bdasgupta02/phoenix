@@ -177,7 +177,9 @@ private:
         }
 
         // subscribing to incremental
-        subscribeToAll(instrumentList);
+        for (auto const& instrument : instrumentList)
+            subscribeToOne(instrument);
+
         while (isRunning)
         {
             try
@@ -234,13 +236,19 @@ private:
 
     void getSnapshot(std::string_view instrument)
     {
-        std::string_view const mdRequest = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
-        forceSendMsg(mdRequest);
+        std::string_view const msg = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
+        forceSendMsg(msg);
+    }
+
+    void subscribeToOne(std::string_view instrument)
+    {
+        std::string_view const msg = fixBuilder.marketDataRefreshSingle(nextSeqNum, instrument); 
+        forceSendMsg(msg);
     }
 
     void subscribeToAll(std::vector<std::string> const& instruments)
     {
-        std::string_view const mdRequest = fixBuilder.marketDataIncrementalTriple(nextSeqNum, instruments);
+        std::string_view const mdRequest = fixBuilder.marketDataRefreshTriple(nextSeqNum, instruments);
         forceSendMsg(mdRequest);
     }
 

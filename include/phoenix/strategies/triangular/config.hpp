@@ -43,6 +43,7 @@ struct Config
                 ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Asset contract size")
                 ("volume-size", po::value<double>(&volumeSize)->default_value(volumeSize), "Asset contract size")
                 ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
+                ("qty-threshold", po::value<double>(&qtyThreshold)->default_value(qtyThreshold), "Min quantity to register top level prices")
             ;
             // clang-format on
 
@@ -95,6 +96,7 @@ struct Config
     double triggerThreshold = 0.0;
     double contractSize = 0.0001;
     double volumeSize = 1.0;
+    double qtyThreshold = 0.0;
 
     std::vector<std::string> instrumentList;
     boost::unordered_flat_map<std::string, std::size_t> instrumentMap;
