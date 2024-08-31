@@ -6,6 +6,7 @@
 #include "phoenix/strategies/triangular/eth/hitter.hpp"
 #include "phoenix/strategies/triangular/risk.hpp"
 #include "phoenix/strategies/triangular/stream.hpp"
+#include "phoenix/strategies/triangular/utils.hpp"
 
 using namespace phoenix;
 using namespace phoenix::triangular;
@@ -38,6 +39,8 @@ int main(int argc, char* argv[])
 
     Graph graph{config};
     auto* handler = graph.getHandler();
+
+    setMaxThreadPriority();
 
     handler->invoke(tag::Logger::Start{});
     PHOENIX_LOG_INFO(handler, "Starting ETH/STETH/USDC Triangular Arbitrage System");
