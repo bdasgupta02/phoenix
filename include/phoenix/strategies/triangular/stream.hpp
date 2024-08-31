@@ -57,12 +57,13 @@ struct Stream : NodeBase
         auto* handler = this->getHandler();
         PHOENIX_LOG_INFO(handler, "Stopping stream");
         isRunning = false;
-        trySendMsg(fixBuilder.logout(nextSeqNum));
 
         for (unsigned i = 0u; i < 3u; ++i)
         {
+            socketIdx = ++socketIdx % 3u;
+            forceSendMsg(fixBuilder.logout(nextSeqNums[socketIdx]));
             boost::system::error_code ec;
-            sockets[i].close(ec);
+            sockets[socketIdx].close(ec);
             if (ec)
                 PHOENIX_LOG_ERROR(handler, "Error closing socket", ec.message());
         }
@@ -115,6 +116,7 @@ struct Stream : NodeBase
     {
         auto* config = this->getConfig();
         auto* handler = this->getHandler();
+        PHOENIX_LOG_INFO(handler, "Taking market orders");
 
         auto nextAllowed = lastSent + interval;
         if (msgCountInterval <= 5u - sizeof...(orders))
@@ -132,17 +134,17 @@ struct Stream : NodeBase
 
         auto const sendOrder = [this, handler](SingleOrder<Traits> const& order)
         {
-            PHOENIX_LOG_DEBUG(
+            PHOENIX_LOG_INFO(
                 handler, "Sending order", order.symbol, order.volume.asDouble(), order.side == 1 ? "BID" : "ASK");
 
             if (order.isLimit)
             {
-                std::string_view msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
+                std::string_view msg = fixBuilder.newOrderSingle(nextSeqNums[socketIdx], order.symbol, order);
                 sendUnthrottled(msg);
             }
             else
             {
-                std::string_view msg = fixBuilder.newMarketOrderSingle(nextSeqNum, order);
+                std::string_view msg = fixBuilder.newMarketOrderSingle(nextSeqNums[socketIdx], order);
                 sendUnthrottled(msg);
             }
         };
@@ -154,7 +156,7 @@ struct Stream : NodeBase
 
     double handle(tag::Stream::GetBalance, std::string_view currency)
     {
-        auto msg = fixBuilder.userRequest(nextSeqNum, currency, this->getConfig()->username);
+        auto msg = fixBuilder.userRequest(nextSeqNums[socketIdx], currency, this->getConfig()->username);
         forceSendMsg(msg);
         auto reader = forceReadMsg();
         PHOENIX_LOG_VERIFY(this->getHandler(), reader.isMessageType("BF"), "Invalid message type");
@@ -202,7 +204,7 @@ private:
             {
                 if (sendHeartbeat.test()) [[unlikely]]
                 {
-                    auto blankHeartbeat = fixBuilder.heartbeat(nextSeqNum);
+                    auto blankHeartbeat = fixBuilder.heartbeat(nextSeqNums[socketIdx]);
                     forceSendMsg(blankHeartbeat);
                     PHOENIX_LOG_DEBUG(handler, "Sent heartbeat");
                     sendHeartbeat.clear();
@@ -240,7 +242,7 @@ private:
                 // test request
                 if (msgType == "1")
                 {
-                    auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getStringView("112"));
+                    auto msg = fixBuilder.heartbeat(nextSeqNums[socketIdx], reader.getStringView("112"));
                     trySendMsg(msg);
                     PHOENIX_LOG_DEBUG(handler, "Received TestRequest, sending Heartbeat");
                     continue;
@@ -256,19 +258,19 @@ private:
 
     void getSnapshot(std::string_view instrument)
     {
-        std::string_view const msg = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
+        std::string_view const msg = fixBuilder.marketDataRequestTopLevel(nextSeqNums[socketIdx], instrument);
         forceSendMsg(msg);
     }
 
     void subscribeToOne(std::string_view instrument)
     {
-        std::string_view const msg = fixBuilder.marketDataRefreshSingle(nextSeqNum, instrument);
+        std::string_view const msg = fixBuilder.marketDataRefreshSingle(nextSeqNums[socketIdx], instrument);
         forceSendMsg(msg);
     }
 
     void subscribeToAll(std::vector<std::string> const& instruments)
     {
-        std::string_view const mdRequest = fixBuilder.marketDataRefreshTriple(nextSeqNum, instruments);
+        std::string_view const mdRequest = fixBuilder.marketDataRefreshTriple(nextSeqNums[socketIdx], instruments);
         forceSendMsg(mdRequest);
     }
 
@@ -277,13 +279,17 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 30);
-        forceSendMsg(msg);
+        for (unsigned i = 0u; i < 3u; ++i)
+        {
+            socketIdx = ++socketIdx % 3u;
+            auto msg = fixBuilder.login(nextSeqNums[socketIdx], config->usernames[socketIdx], config->secrets[socketIdx], 30);
+            forceSendMsg(msg);
+            auto reader = forceReadMsg();
+            PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful with message type", reader.getMessageType(), "with socket", socketIdx, "and seq", nextSeqNums[socketIdx]);
+            PHOENIX_LOG_INFO(handler, "Login successful for socket", socketIdx);
+        }
 
-        auto reader = forceReadMsg();
-
-        PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful");
-        PHOENIX_LOG_INFO(handler, "Login successful");
+        PHOENIX_LOG_INFO(handler, "All logins successful");
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -345,7 +351,7 @@ private:
         boost::system::error_code error;
         io::write(sockets[socketIdx], io::buffer(msg), error);
         PHOENIX_LOG_VERIFY(this->getHandler(), (!error), "Error while sending message", msg, error.message());
-        ++nextSeqNum;
+        ++nextSeqNums[socketIdx];
     }
 
     void heartbeatWorker()
@@ -359,7 +365,8 @@ private:
 
     io::io_context ioContext;
     io::streambuf recvBuffer;
-    unsigned socketIdx = 0u;
+    unsigned socketIdx = 2u;
+    std::array<std::size_t, 3u> nextSeqNums{1u, 1u, 1u};
     std::array<io::ip::tcp::socket, 3u> sockets{
         io::ip::tcp::socket{ioContext}, io::ip::tcp::socket{ioContext}, io::ip::tcp::socket{ioContext}};
 
@@ -369,7 +376,6 @@ private:
     static constexpr std::chrono::seconds HEARTBEAT_INTERVAL{25u};
 
     bool isRunning = false;
-    std::size_t nextSeqNum = 1u;
 
     FIXMessageBuilder fixBuilder;
 
