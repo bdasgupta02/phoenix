@@ -195,7 +195,10 @@ private:
 
         // subscribing to incremental
         for (auto const& instrument : instrumentList)
+        {
+            socketIdx = ++socketIdx % 3u;
             subscribeToOne(instrument);
+        }
 
         while (isRunning)
         {
@@ -216,14 +219,20 @@ private:
 
                 auto& reader = *readerOpt;
 
-                auto const& recvInstrument = reader.getString("55");
-                if (recvInstrument != reader.UNKNOWN && !instrumentMap.contains(recvInstrument))
-                {
-                    PHOENIX_LOG_DEBUG(handler, "Message received for other instrument", reader.getStringView("55"));
-                    continue;
-                };
-
                 auto const& msgType = reader.getMessageType();
+
+                // test request
+                if (msgType == "1")
+                {
+                    auto msg = fixBuilder.heartbeat(nextSeqNums[socketIdx], reader.getStringView("112"));
+                    trySendMsg(msg);
+                    PHOENIX_LOG_DEBUG(handler, "Received TestRequest, sending Heartbeat");
+                    continue;
+                }
+
+                auto const& recvInstrument = reader.getString("55");
+                if (recvInstrument != instrumentList[socketIdx])
+                    continue;
 
                 // market data update
                 if (msgType == "X" or msgType == "W") [[likely]]
@@ -236,15 +245,6 @@ private:
                 if (msgType == "8")
                 {
                     handler->invoke(tag::Hitter::ExecutionReport{}, std::move(reader));
-                    continue;
-                }
-
-                // test request
-                if (msgType == "1")
-                {
-                    auto msg = fixBuilder.heartbeat(nextSeqNums[socketIdx], reader.getStringView("112"));
-                    trySendMsg(msg);
-                    PHOENIX_LOG_DEBUG(handler, "Received TestRequest, sending Heartbeat");
                     continue;
                 }
             }
