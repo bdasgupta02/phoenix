@@ -282,7 +282,7 @@ private:
         for (unsigned i = 0u; i < 3u; ++i)
         {
             socketIdx = ++socketIdx % 3u;
-            auto msg = fixBuilder.login(nextSeqNums[socketIdx], config->usernames[socketIdx], config->secrets[socketIdx], 30);
+            auto msg = fixBuilder.login(nextSeqNums[socketIdx], config->username, config->secret, 30);
             forceSendMsg(msg);
             auto reader = forceReadMsg();
             PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful with message type", reader.getMessageType(), "with socket", socketIdx, "and seq", nextSeqNums[socketIdx]);

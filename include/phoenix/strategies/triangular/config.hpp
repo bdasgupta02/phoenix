@@ -28,8 +28,8 @@ struct Config
             // clang-format off
             desc.add_options()
                 ("help,h", "see all commands")
-                ("auth-username", po::value<std::vector<std::string>>(&usernames)->required(), "Deribit usernames (3 needed)")
-                ("auth-secret", po::value<std::vector<std::string>>(&secrets)->required(), "Deribit client secrets (3 needed)")
+                ("auth-username", po::value<std::string>(&username)->required(), "Deribit username")
+                ("auth-secret", po::value<std::string>(&secret)->required(), "Deribit client secret")
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
                 ("client", po::value<std::string>(&client)->default_value(client), "Unique client name")
@@ -37,7 +37,7 @@ struct Config
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
                 ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
                 ("log-prefix", po::value<std::string>(&instrument)->required(), "Prefix for all log files")
-                ("instrument", po::value<std::vector<std::string>>(&instrumentList)->required(), "List of instruments (3 needed)")
+                ("instrument", po::value<std::vector<std::string>>(&instrumentList)->required(), "List of instruments (should be 3)")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("trigger-threshold", po::value<double>(&triggerThreshold)->default_value(triggerThreshold), "Trigger threshold for risk reduction")
                 ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Asset contract size")
@@ -57,11 +57,7 @@ struct Config
             }
 
             po::notify(vm);
-
             assert(instrumentList.size() == 3);
-            assert(usernames.size() == 3);
-            assert(secrets.size() == 3);
-
             std::size_t i = 0u;
             for (auto const& e : instrumentList)
             {
@@ -84,8 +80,8 @@ struct Config
     }
 
     // deribit connectivity
-    std::vector<std::string> usernames;
-    std::vector<std::string> secrets;
+    std::string username;
+    std::string secret;
     std::string client;
     std::string host = "www.deribit.com"; // test.deribit.com:9881 for test net
     std::string port = "9881";
