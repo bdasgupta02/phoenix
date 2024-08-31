@@ -276,6 +276,21 @@ struct FIXMessageBuilder
         return builder.serialize();
     }
 
+    inline std::string_view marketDataRefreshSingle(std::size_t seqNum, std::string_view instrument)
+    {
+        builder.reset(seqNum, "V", client);
+        builder.append("262", seqNum);
+        builder.append("263", 1);
+        builder.append("265", 0);
+        builder.append("264", 1);
+        builder.append("146", 1);
+        builder.append("55", instrument);
+        builder.append("267", 2);
+        builder.append("269", 0);
+        builder.append("269", 1);
+        return builder.serialize();
+    }
+
     inline std::string_view newOrderSingle(std::size_t seqNum, std::string_view symbol, auto& order)
     {
         builder.reset(seqNum, "D", client);

@@ -40,9 +40,7 @@ struct Hitter : NodeBase
         PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
 
         auto const checkQty = [it, this](double qty)
-        {
-            return it->second == 1 || ((it->second == 0 || it->second == 2) && qty > qtyThreshold);
-        };
+        { return it->second == 1 || ((it->second == 0 || it->second == 2) && qty > qtyThreshold); };
 
         ///////// UPDATE PRICES
         Price newBid;
@@ -79,7 +77,7 @@ struct Hitter : NodeBase
         // TODO: min gap should be contract size
         if (!update || fillMode)
             return;
-        
+
         PHOENIX_LOG_VERIFY(handler, (instrumentPrices.bid < instrumentPrices.ask), "Overlapping prices");
 
         auto& eth = bestPrices[0];
@@ -91,7 +89,8 @@ struct Hitter : NodeBase
         // Buy ETH, Buy STETH for ETH, Sell STETH
         if (steth.bid - threshold > (eth.ask * bridge.ask))
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1]", steth.bid.asDouble(), '>', eth.ask.asDouble(), '*', bridge.ask.asDouble());
+            PHOENIX_LOG_INFO(
+                handler, "[OPP CASE 1]", steth.bid.asDouble(), '>', eth.ask.asDouble(), '*', bridge.ask.asDouble());
 
             // clang-format off
             Order buyEth{
@@ -129,7 +128,8 @@ struct Hitter : NodeBase
         // Buy STETH, Sell STETH for ETH, Sell ETH
         if ((eth.bid * bridge.bid) - threshold > steth.ask)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 2]", eth.bid.asDouble(), '*', bridge.bid.asDouble(), '>', steth.ask.asDouble());
+            PHOENIX_LOG_INFO(
+                handler, "[OPP CASE 2]", eth.bid.asDouble(), '*', bridge.bid.asDouble(), '>', steth.ask.asDouble());
 
             // clang-format off
             Order buySteth{

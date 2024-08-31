@@ -5,13 +5,15 @@
 #include "phoenix/data/orders.hpp"
 #include "phoenix/tags.hpp"
 
-#include <atomic>
 #include <boost/asio.hpp>
 #include <boost/regex.hpp>
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -57,10 +59,13 @@ struct Stream : NodeBase
         isRunning = false;
         trySendMsg(fixBuilder.logout(nextSeqNum));
 
-        boost::system::error_code ec;
-        socket.close(ec);
-        if (ec)
-            PHOENIX_LOG_ERROR(handler, "Error closing socket", ec.message());
+        for (unsigned i = 0u; i < 3u; ++i)
+        {
+            boost::system::error_code ec;
+            sockets[i].close(ec);
+            if (ec)
+                PHOENIX_LOG_ERROR(handler, "Error closing socket", ec.message());
+        }
 
         stopHeartbeat.test_and_set();
         heartbeatTimer.join();
@@ -75,15 +80,21 @@ struct Stream : NodeBase
         {
             if (config->colo)
             {
-                int port = std::atoi(config->port.c_str());
-                io::ip::tcp::endpoint endpoint(io::ip::address::from_string(config->host), port);
-                socket.connect(endpoint);
+                for (unsigned i = 0u; i < 3u; ++i)
+                {
+                    int port = std::atoi(config->port.c_str());
+                    io::ip::tcp::endpoint endpoint(io::ip::address::from_string(config->host), port);
+                    sockets[i].connect(endpoint);
+                }
             }
             else
             {
-                io::ip::tcp::resolver resolver{ioContext};
-                auto endpoints = resolver.resolve(config->host, config->port);
-                io::connect(socket, endpoints);
+                for (unsigned i = 0u; i < 3u; ++i)
+                {
+                    io::ip::tcp::resolver resolver{ioContext};
+                    auto endpoints = resolver.resolve(config->host, config->port);
+                    io::connect(sockets[i], endpoints);
+                }
             }
             PHOENIX_LOG_INFO(handler, "Connected successfully");
             isRunning = true;
@@ -144,7 +155,7 @@ struct Stream : NodeBase
         auto msg = fixBuilder.userRequest(nextSeqNum, currency, this->getConfig()->username);
         forceSendMsg(msg);
         auto reader = recvMsg();
-        PHOENIX_LOG_VERIFY(this->getHandler(), reader.isMessageType("BF"), "Invalid message type");
+        PHOENIX_LOG_VERIFY(this->getHandler(), (reader && reader->isMessageType("BF")), "Invalid message type");
         return reader.template getNumber<double>("100001");
     }
 
@@ -168,12 +179,14 @@ private:
         unsigned int i = 0u;
         while (i < 3u)
         {
-            auto reader = recvMsg();
+            auto reader = forceReadMsg();
             if (reader.isMessageType("W"))
             {
                 handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), false);
                 ++i;
             }
+            else
+                PHOENIX_LOG_INFO(handler, "Unknown message type", reader.getMessageType());
         }
 
         // subscribing to incremental
@@ -182,6 +195,7 @@ private:
 
         while (isRunning)
         {
+            socketIdx = ++socketIdx % 3u;
             try
             {
                 if (sendHeartbeat.test()) [[unlikely]]
@@ -192,7 +206,11 @@ private:
                     sendHeartbeat.clear();
                 }
 
-                auto reader = recvMsg();
+                auto readerOpt = recvMsg();
+                if (!readerOpt)
+                    continue;
+
+                auto& reader = *readerOpt;
 
                 auto const& recvInstrument = reader.getString("55");
                 if (recvInstrument != reader.UNKNOWN && !instrumentMap.contains(recvInstrument))
@@ -242,7 +260,7 @@ private:
 
     void subscribeToOne(std::string_view instrument)
     {
-        std::string_view const msg = fixBuilder.marketDataRefreshSingle(nextSeqNum, instrument); 
+        std::string_view const msg = fixBuilder.marketDataRefreshSingle(nextSeqNum, instrument);
         forceSendMsg(msg);
     }
 
@@ -262,20 +280,35 @@ private:
 
         auto reader = recvMsg();
 
-        PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful");
+        PHOENIX_LOG_VERIFY(handler, (reader && reader->isMessageType("A")), "Login unsuccessful");
         PHOENIX_LOG_INFO(handler, "Login successful");
     }
 
     [[gnu::hot, gnu::always_inline]]
-    inline FIXReader recvMsg()
+    inline std::optional<FIXReader> recvMsg()
     {
+        auto& socket = sockets[socketIdx];
+        if (!socket.available())
+            return {};
+
         auto const size = io::read_until(socket, recvBuffer, boost::regex("\\x0110=\\d+\\x01"));
         auto const* data = boost::asio::buffer_cast<char const*>(recvBuffer.data());
         std::string_view str{data, size};
         FIXReader reader{str};
         PHOENIX_LOG_VERIFY(this->getHandler(), (!reader.isMessageType("3")), "Reject message received", str);
         recvBuffer.consume(size);
-        return std::move(reader);
+        return {std::move(reader)};
+    }
+
+    [[gnu::hot, gnu::always_inline]]
+    inline FIXReader forceReadMsg()
+    {
+        for (;;)
+        {
+            auto reader = recvMsg();
+            if (reader)
+                return std::move(*reader);
+        }
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -308,7 +341,7 @@ private:
     inline void sendUnthrottled(std::string_view msg)
     {
         boost::system::error_code error;
-        io::write(socket, io::buffer(msg), error);
+        io::write(sockets[socketIdx], io::buffer(msg), error);
         PHOENIX_LOG_VERIFY(this->getHandler(), (!error), "Error while sending message", msg, error.message());
         ++nextSeqNum;
     }
@@ -323,8 +356,10 @@ private:
     }
 
     io::io_context ioContext;
-    io::ip::tcp::socket socket{ioContext};
     io::streambuf recvBuffer;
+    unsigned socketIdx = 0u;
+    std::array<io::ip::tcp::socket, 3u> sockets{
+        io::ip::tcp::socket{ioContext}, io::ip::tcp::socket{ioContext}, io::ip::tcp::socket{ioContext}};
 
     std::thread heartbeatTimer;
     std::atomic_flag sendHeartbeat = ATOMIC_FLAG_INIT;

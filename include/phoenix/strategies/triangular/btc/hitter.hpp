@@ -40,9 +40,7 @@ struct Hitter : NodeBase
         PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
 
         auto const checkQty = [it, this](double qty)
-        {
-            return it->second == 2 || ((it->second == 0 || it->second == 1) && qty > qtyThreshold);
-        };
+        { return it->second == 2 || ((it->second == 0 || it->second == 1) && qty > qtyThreshold); };
 
         ///////// UPDATE PRICES
         Price newBid;
