@@ -116,7 +116,7 @@ struct Stream : NodeBase
         auto* config = this->getConfig();
 
         auto nextAllowed = lastSent + interval;
-        if (msgCountInterval <= 4u - sizeof...(orders))
+        if (msgCountInterval <= 5u - sizeof...(orders))
             msgCountInterval += sizeof...(orders);
         else if (std::chrono::steady_clock::now() >= nextAllowed)
         {
