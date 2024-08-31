@@ -114,6 +114,7 @@ struct Stream : NodeBase
     inline bool handle(tag::Stream::TakeMarketOrders, Orders&&... orders)
     {
         auto* config = this->getConfig();
+        auto* handler = this->getHandler();
 
         auto nextAllowed = lastSent + interval;
         if (msgCountInterval <= 5u - sizeof...(orders))
@@ -124,9 +125,10 @@ struct Stream : NodeBase
             msgCountInterval = sizeof...(orders);
         }
         else
+        { 
+            PHOENIX_LOG_WARN(handler, "Orders rejected with msgCountInterval", msgCountInterval);
             return false;
-
-        auto* handler = this->getHandler();
+        }
 
         auto const sendOrder = [this, handler](SingleOrder<Traits> const& order)
         {
