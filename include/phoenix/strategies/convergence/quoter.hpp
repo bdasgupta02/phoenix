@@ -4,8 +4,8 @@
 #include "phoenix/data/fix.hpp"
 #include "phoenix/data/orders.hpp"
 
-#include <boost/container/flat_set.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -21,138 +21,97 @@ struct Quoter : NodeBase
     using Traits = NodeBase::Traits;
     using PriceType = NodeBase::Traits::PriceType;
     using VolumeType = NodeBase::Traits::VolumeType;
-
     using PriceValue = PriceType::ValueType;
-    using Bids = boost::container::flat_set<PriceValue, std::greater<PriceValue>>;
-    using Asks = boost::container::flat_set<PriceValue, std::less<PriceValue>>;
 
-    // TODO: handle case where only one side is available - now it leads to fatal
-    inline void handle(tag::Quoter::MDUpdate, FIXReader&& topLevel)
+    struct OrderRecord
+    {
+        PriceType price;
+        VolumeType remaining;
+        std::string orderId;
+        bool isTakeProfit = false;
+        bool isActive = false;
+    };
+
+    using OrderRecords = boost::unordered::unordered_flat_map<PriceValue, OrderRecord>;
+
+    inline void handle(tag::Quoter::MDUpdate, FIXReader&& marketData)
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        std::int64_t bidIdx = -1u;
-        std::int64_t askIdx = -1u;
+        //////// GET PRICES
 
-        PriceType const lastBid = bestBid;
-        PriceType const lastAsk = bestAsk;
+        PriceType bestBid;
+        PriceType bestAsk;
 
-        std::size_t const numUpdates = topLevel.getFieldSize("269");
-        for (std::int64_t i = 0; i < numUpdates; ++i)
+        std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
+        for (std::size_t i = 0u; i < numUpdates; ++i)
         {
-            auto typeField = topLevel.getNumber<unsigned int>("269", i);
-
-            if (typeField == 0)
-                bidIdx = i;
-
-            if (typeField == 1)
-                askIdx = i;
+            unsigned const typeField = marketData.getNumber<unsigned>("269", i);
+            if (typeField == 0u)
+                bestBid.minOrZero(marketData.getDecimal<PriceType>("270", i));
+            if (typeField == 1u)
+                bestAsk.minOrZero(marketData.getDecimal<PriceType>("270", i));
         }
-
-        if (bidIdx > -1)
-        {
-            bestBid = topLevel.getDecimal<PriceType>("270", bidIdx);
-            PHOENIX_LOG_VERIFY(handler, (!bestBid.error), "Decimal parse error");
-        }
-
-        if (askIdx > -1)
-        {
-            bestAsk = topLevel.getDecimal<PriceType>("270", askIdx);
-            PHOENIX_LOG_VERIFY(handler, (!bestAsk.error), "Decimal parse error");
-        }
-
-        updateIndex(topLevel);
-
-        // TODO: check if these aren't take profits
-        // TODO: make bids/asksQuoted a BST instead
-        // for (auto [price, _] : bidsQuoted)
-        // {
-        //     if (bestBid - config->quoteResetThreshold > price)
-        //     {
-        //         handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
-        //         PHOENIX_LOG_INFO(
-        //             handler,
-        //             "[RESET]",
-        //             "BID",
-        //             PriceType{price}.template as<double>(),
-        //             "with best bid",
-        //             bestBid.template as<double>());
-        //     }
-        //     else
-        //         break;
-        // }
-
-        // for (auto [price, _] : asksQuoted)
-        // {
-        //     if (bestAsk + config->quoteResetThreshold < price)
-        //     {
-        //         handler->invoke(tag::Stream::CancelQuote{}, quotedLevels[price]);
-        //         PHOENIX_LOG_INFO(
-        //             handler,
-        //             "[RESET]",
-        //             "ASK",
-        //             PriceType{price}.template as<double>(),
-        //             "with best ask",
-        //             bestAsk.template as<double>());
-        //     }
-        //     else
-        //         break;
-        // }
 
         PriceType const tickSize = config->tickSize;
         VolumeType const lotSize = config->lotSize;
-        VolumeType const doubleLotSize = lotSize + lotSize;
         bool const aggressive = config->aggressive;
 
-        // > lotSize to prevent trading on my own book event
-        if (bestBid < 1.0 && lastBid != bestBid && !quotedLevels.contains(bestBid.getValue()))
+        //////// TRIGGER
+
+        if (bestBid && bestBid < 1.0 && lastBid != bestBid && !hasBeenOrdered(bestBid))
         {
-            if (inventoryBid > config->positionBoundary)
+            if (lastOrderedBid.isActive && lastOrderedBid.price < bestBid)
             {
-                PHOENIX_LOG_WARN(handler, "Bid position boundary reached, ignoring quote");
-                return;
+                // cancel stale order
+                cancelOrder(lastOrderedBid);
+                lastOrderedBid.isActive = false;
             }
 
-            if (aggressive)
+            if (lastOrderedBid.isActive && lastOrderedBid.price > bestBid) [[unlikely]]
+                PHOENIX_LOG_WARN(handler, "Previous bid is better");
+            else if (aggressive) [[likely]]
             {
                 PriceType const aggressiveBid = bestBid + tickSize;
                 if (aggressiveBid < 1.0 && aggressiveBid < bestAsk && aggressiveBid < bestAsk &&
-                    !quotedLevels.contains(aggressiveBid.getValue()))
-                {
+                    !hasBeenOrdered(aggressiveBid))
                     sendQuote({.price = aggressiveBid, .volume = lotSize, .side = 1});
-                    sendQuote({.price = bestBid, .volume = doubleLotSize, .side = 1});
-                }
                 else
-                    sendQuote({.price = bestBid, .volume = doubleLotSize, .side = 1});
+                    sendQuote({.price = bestBid, .volume = lotSize, .side = 1});
             }
             else
                 sendQuote({.price = bestBid, .volume = lotSize, .side = 1});
         }
 
-        if (bestAsk > 1.0 && lastAsk != bestAsk && !quotedLevels.contains(bestAsk.getValue()))
+        if (bestAsk && bestAsk > 1.0 && lastAsk != bestAsk && !hasBeenOrdered(bestAsk))
         {
-            if (inventoryAsk > config->positionBoundary)
+            if (lastOrderedAsk.isActive && lastOrderedAsk.price > bestAsk)
             {
-                PHOENIX_LOG_WARN(handler, "Ask position boundary reached, ignoring quote");
-                return;
+                // cancel stale order
+                cancelOrder(lastOrderedAsk);
+                lastOrderedAsk.isActive = false;
             }
 
-            if (aggressive)
+            if (lastOrderedAsk.isActive && lastOrderedAsk.price < bestAsk) [[unlikely]]
+                PHOENIX_LOG_WARN(handler, "Previous ask is better");
+            else if (aggressive) [[likely]]
             {
                 PriceType const aggressiveAsk = bestAsk - tickSize;
                 if (aggressiveAsk > 1.0 && aggressiveAsk > bestBid && aggressiveAsk > bestBid &&
-                    !quotedLevels.contains(aggressiveAsk.getValue()))
-                {
+                    !hasBeenOrdered(aggressiveAsk))
                     sendQuote({.price = aggressiveAsk, .volume = lotSize, .side = 2});
-                    sendQuote({.price = bestAsk, .volume = doubleLotSize, .side = 2});
-                }
                 else
-                    sendQuote({.price = bestAsk, .volume = doubleLotSize, .side = 2});
+                    sendQuote({.price = bestAsk, .volume = lotSize, .side = 2});
             }
             else
                 sendQuote({.price = bestAsk, .volume = lotSize, .side = 2});
         }
+
+        if (bestBid)
+            lastBid = bestBid;
+        if (bestAsk)
+            lastAsk = bestAsk;
     }
 
     inline void handle(tag::Quoter::ExecutionReport, FIXReader&& report)
@@ -164,99 +123,88 @@ struct Quoter : NodeBase
         auto const& orderId = report.getString("11");
         auto const& clOrderId = report.getString("41");
         auto remaining = report.getDecimal<VolumeType>("151");
-        auto justExecuted = report.getDecimal<VolumeType>("14");
+        auto totalExecuted = report.getDecimal<VolumeType>("14");
         auto side = report.getNumber<unsigned int>("54");
         auto price = report.getDecimal<PriceType>("44");
         PHOENIX_LOG_VERIFY(handler, (!price.error && !remaining.error), "Decimal parse error");
+
+        bool const isTakeProfit = clOrderId.size() == 0 || clOrderId[0] == 't';
 
         // new order
         if (status == 0)
         {
             logOrder("[NEW ORDER]", orderId, clOrderId, side, price, remaining);
-            auto priceValue = price.getValue();
-
-            auto remainingValue = remaining.asDouble();
-            openOrders += remainingValue;
-            orders[orderId] = remaining;
-            quotedLevels[priceValue] = orderId;
-
-            if (clOrderId.size() > 0 && clOrderId[0] != 't')
+            inflight.erase(price.getValue());
+            if (side == 1)
             {
-                if (side == 1)
-                    bidsQuoted.insert(priceValue);
-                else
-                    asksQuoted.insert(priceValue);
+                bidsOrdered[price.getValue()] = {price, remaining, orderId, isTakeProfit};
+                if (isTakeProfit)
+                    lastOrderedBid = {.orderId = orderId, .isActive = true};
+            }
+            else
+            {
+                asksOrdered[price.getValue()] = {price, remaining, orderId, isTakeProfit};
+                if (isTakeProfit)
+                    lastOrderedAsk = {.orderId = orderId, .isActive = true};
             }
         }
 
         // partial/total fill
         if (status == 1 || status == 2)
         {
-            logOrder("[FILL]", orderId, clOrderId, side, price, justExecuted);
-            auto tickSize = config->tickSize;
-            auto lastRemaining = orders[orderId];
-            auto executed = lastRemaining - remaining;
-
-            auto executedValue = justExecuted.asDouble();
-            if (clOrderId.size() > 0 && clOrderId[0] == 't')
+            logOrder("[FILL]", orderId, clOrderId, side, price, remaining);
+            if (remaining == 0.0)
             {
-                takeProfitFilled += executedValue;
-
-                if (side == 1u)
-                    inventoryAsk -= executedValue;
-                else
-                    inventoryBid -= executedValue;
-            }
-            else if (0u < executed)
-            {
-                openOrders -= executedValue;
-                baseFilled += executedValue;
-
-                if (side == 1u)
-                    inventoryBid += executedValue;
-                else
-                    inventoryAsk += executedValue;
-
-                unsigned int reversedSide = side == 1 ? 2 : 1;
-                PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
-                sendQuote({.price = reversedPrice, .volume = executed, .side = reversedSide, .takeProfit = true});
+                PHOENIX_LOG_INFO(handler, "Partial fill with remaining qty of", remaining.asDouble());
+                return;
             }
 
-            PHOENIX_LOG_INFO(
-                handler,
-                "[EDGE CAPTURED]",
-                takeProfitFilled,
-                "[BASE FILLS]",
-                baseFilled,
-                "[EXPOSURE]",
-                (baseFilled - takeProfitFilled),
-                "[INVENTORY]",
-                inventoryBid,
-                inventoryAsk);
-
-            if (remaining.getValue() == 0)
+            if (isTakeProfit)
             {
-                orders.erase(orderId);
-                quotedLevels.erase(price.getValue());
                 if (side == 1)
-                    bidsQuoted.erase(price.getValue());
+                {
+                    asksUncaptured -= remaining;
+                    bidsOrdered.erase(price.getValue());
+                }
                 else
-                    asksQuoted.erase(price.getValue());
+                {
+                    bidsUncaptured -= remaining;
+                    asksOrdered.erase(price.getValue());
+                }
+                capturedProfit += totalExecuted;
             }
             else
-                orders[orderId] = remaining;
+            {
+                if (side == 1)
+                {
+                    bidsUncaptured += remaining;
+                    bidsOrdered.erase(price.getValue());
+                    lastOrderedBid.isActive = false;
+                }
+                else
+                {
+                    asksUncaptured += remaining;
+                    asksOrdered.erase(price.getValue());
+                    lastOrderedAsk.isActive = false;
+                }
+
+                auto tickSize = config->tickSize;
+                unsigned int reversedSide = side == 1 ? 2 : 1;
+                PriceType reversedPrice = side == 1 ? price + tickSize : price - tickSize;
+                sendQuote({.price = reversedPrice, .volume = totalExecuted, .side = reversedSide, .takeProfit = true});
+            }
+
+            logStatus();
         }
 
         // cancelled
         if (status == 4)
         {
             logOrder("[CANCELLED]", orderId, clOrderId, side, price, remaining);
-            orders.erase(orderId);
-            quotedLevels.erase(price.getValue());
             if (side == 1)
-                bidsQuoted.erase(price.getValue());
+                bidsOrdered.erase(price.getValue());
             else
-                asksQuoted.erase(price.getValue());
+                asksOrdered.erase(price.getValue());
         }
 
         // rejected
@@ -264,15 +212,11 @@ struct Quoter : NodeBase
         {
             auto reason = report.getStringView("103");
             logOrder("[REJECTED]", orderId, clOrderId, side, price, remaining, reason);
-            orders.erase(orderId);
-            quotedLevels.erase(price.getValue());
             if (side == 1)
-                bidsQuoted.erase(price.getValue());
+                bidsOrdered.erase(price.getValue());
             else
-                asksQuoted.erase(price.getValue());
+                asksOrdered.erase(price.getValue());
         }
-
-        PHOENIX_LOG_INFO(handler, "[OPEN ORDERS]", openOrders);
     }
 
 private:
@@ -282,7 +226,7 @@ private:
         std::string_view clOrderId,
         unsigned int side,
         PriceType price,
-        VolumeType volume,
+        VolumeType remaining,
         std::string_view rejectReason = "")
     {
         auto* handler = this->getHandler();
@@ -292,56 +236,75 @@ private:
             orderId,
             clOrderId,
             side == 1 ? "BID" : "ASK",
-            volume.template as<double>(),
+            "with remaining",
+            remaining.asDouble(),
             '@',
-            price.template as<double>(),
+            price.asDouble(),
             rejectReason.empty() ? "" : "with reason",
             rejectReason);
+    }
+
+    void logStatus()
+    {
+        auto* handler = this->getHandler();
+        PHOENIX_LOG_INFO(
+            handler,
+            "[STATUS]",
+            "Uncaptured bids:",
+            bidsUncaptured.asDouble(),
+            "Uncaptured asks:",
+            asksUncaptured.asDouble(),
+            "Captured profit:",
+            capturedProfit.asDouble());
     }
 
     void sendQuote(SingleOrder<Traits> quote)
     {
         auto* handler = this->getHandler();
 
+        if (inflight.contains(quote.price.getValue()))
+        {
+            PHOENIX_LOG_WARN(handler, "Level already quoted", quote.price.asDouble());
+            return;
+        }
+
         handler->invoke(tag::Stream::SendQuote{}, quote);
+        inflight.insert(quote.price.getValue());
         PHOENIX_LOG_INFO(
             handler,
             "[QUOTED]",
             quote.takeProfit ? "[TAKE PROFIT]" : "",
             quote.side == 1 ? "BID" : "ASK",
-            quote.volume.template as<double>(),
+            quote.volume.asDouble(),
             '@',
-            quote.price.template as<double>());
+            quote.price.asDouble());
     }
 
-    void updateIndex(FIXReader& topLevel)
+    void cancelOrder(OrderRecord order)
     {
-        PriceType newIndex = topLevel.getDecimal<PriceType>("100090");
-        if (index != newIndex && newIndex.getValue() != 0u)
-        {
-            index = newIndex;
-            PHOENIX_LOG_INFO(this->getHandler(), "Index price changed to", index.template as<double>());
-        }
+        auto* handler = this->getHandler();
+        handler->invoke(tag::Stream::CancelQuote{}, order.orderId);
+        PHOENIX_LOG_INFO(handler, "Cancelling stale order", order.orderId);
     }
 
-    PriceType bestBid;
-    PriceType bestAsk;
-    PriceType index;
+    bool hasBeenOrdered(PriceType price)
+    {
+        return bidsOrdered.contains(price.getValue()) || asksOrdered.contains(price.getValue());
+    }
 
-    // <order id, remaining volume>
-    boost::unordered_flat_map<std::string, VolumeType> orders;
+    PriceType lastBid;
+    PriceType lastAsk;
 
-    // <level price, order id>
-    boost::unordered_flat_map<PriceValue, std::string> quotedLevels;
+    boost::unordered::unordered_flat_set<PriceValue> inflight;
 
-    Bids bidsQuoted;
-    Asks asksQuoted;
+    OrderRecords bidsOrdered;
+    OrderRecords asksOrdered;
+    OrderRecord lastOrderedBid;
+    OrderRecord lastOrderedAsk;
 
-    double takeProfitFilled = 0.0;
-    double baseFilled = 0.0;
-    double openOrders = 0.0;
-    double inventoryBid = 0.0;
-    double inventoryAsk = 0.0;
+    VolumeType capturedProfit = 0.0;
+    VolumeType bidsUncaptured = 0.0;
+    VolumeType asksUncaptured = 0.0;
 };
 
 } // namespace phoenix::convergence
