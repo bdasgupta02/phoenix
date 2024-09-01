@@ -43,6 +43,8 @@ struct Hitter : NodeBase
         Price newAsk;
         Price newIndex;
 
+        newIndex.minOrZero(marketData.getDecimal<Price>("100090"));
+
         std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
         for (std::size_t i = 0u; i < numUpdates; ++i)
         {
@@ -51,21 +53,18 @@ struct Hitter : NodeBase
                 newBid.minOrZero(marketData.getDecimal<Price>("270", i));
             if (typeField == 1u)
                 newAsk.minOrZero(marketData.getDecimal<Price>("270", i));
-            if (typeField == 2u)
-                newIndex.minOrZero(marketData.getDecimal<Price>("270", i));
         }
 
         if (newBid)
             bestBid = newBid;
         if (newAsk)
             bestAsk = newAsk;
-        if (newIndex)
-            bestIndex = newIndex;
 
         ///////// EXITING POSITION
 
         if (fillMode)
         {
+            // TODO: exit when index recovers back to mid
             if (std::chrono::steady_clock::now() - lastOrdered >= EXIT_TIME)
             {
                 switch (filled)
@@ -135,14 +134,7 @@ struct Hitter : NodeBase
         switch (status)
         {
         case 1: logOrder("[PARTIAL FILL]", orderId, side, price, remaining); break;
-
-        case 4:
-        {
-            logOrder("[CANCELLED]", orderId, side, price, remaining);
-            if (--filled == 0u)
-                fillMode = false;
-        }
-        break;
+        case 4: logOrder("[CANCELLED]", orderId, side, price, remaining); break;
 
         case 0:
         {
@@ -188,7 +180,7 @@ struct Hitter : NodeBase
                 fillMode = false;
                 filled = 0u;
                 auto qty = config->lots;
-                pnlQty += (sentAsk.price - sentBid.price).asDouble() * qty.asDouble();
+                pnlQty += (sentAsk.price.asDouble() - sentBid.price.asDouble()) * qty.asDouble();
                 PHOENIX_LOG_INFO(handler, "All orders filled with pnl", pnlQty, "(in contract size)");
             }
         }
@@ -258,7 +250,7 @@ private:
     Price bestIndex;
 
     // fill mode
-    static constexpr std::chrono::seconds EXIT_TIME{15u};
+    static constexpr std::chrono::seconds EXIT_TIME{30u};
     bool fillMode = false;
     unsigned filled = 0u;
     Order sentBid;

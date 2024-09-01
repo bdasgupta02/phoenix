@@ -28,8 +28,8 @@ struct Config
         {
             po::options_description desc("Config");
 
-            std::string lotsStr = "1.0";
-            std::string tickSizeStr = "1.0";
+            double lotsDouble = 1.0;
+            double tickSizeDouble = 1.0;
 
             // clang-format off
             desc.add_options()
@@ -46,13 +46,12 @@ struct Config
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
                 ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
-                ("log-prefix", po::value<std::string>(&instrument)->required(), "Prefix for all log files")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
 
                 // settings
                 ("instrument", po::value<std::string>(&instrument)->required(), "The traded instrument")
-                ("lots", po::value<std::string>(&lotsStr)->default_value(lotsStr), "Lot size to order")
-                ("tick-size", po::value<std::string>(&tickSizeStr)->default_value(tickSizeStr), "Min tick size")
+                ("lots", po::value<double>(&lotsDouble)->default_value(lotsDouble), "Lot size to order")
+                ("tick-size", po::value<double>(&tickSizeDouble)->default_value(tickSizeDouble), "Min tick size")
                 ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
             ;
             // clang-format on
@@ -68,8 +67,8 @@ struct Config
 
             po::notify(vm);
 
-            lots = Volume{lotsStr};
-            tickSize = Price{tickSizeStr};
+            lots = Volume{lotsDouble};
+            tickSize = Price{tickSizeDouble};
 
             return true;
         }

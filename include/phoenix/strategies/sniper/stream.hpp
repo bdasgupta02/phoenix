@@ -145,9 +145,11 @@ private:
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
-        PHOENIX_LOG_INFO(handler, "Starting trading pipeline");
 
         auto const& instrument = config->instrument;
+
+        PHOENIX_LOG_INFO(handler, "Starting trading pipeline for", instrument);
+
         getSnapshot(instrument);
 
         auto reader = recvMsg();
@@ -201,6 +203,15 @@ private:
                     handler->invoke(tag::Hitter::ExecutionReport{}, reader);
                     continue;
                 }
+
+                // MD reject
+                if (msgType == "Y") [[unlikely]]
+                {
+                    PHOENIX_LOG_FATAL(handler, "MD reject message received");
+                    continue;
+                }
+                    
+                PHOENIX_LOG_ERROR(handler, "Unknown message type", reader.getMessageType());
             }
             catch (std::exception const& e)
             {
@@ -287,7 +298,7 @@ private:
     io::io_context ioContext;
     io::streambuf recvBuffer;
     io::ip::tcp::socket socket{ioContext};
-    std::size_t nextSeqNum = 0u;
+    std::size_t nextSeqNum = 1u;
     static constexpr std::chrono::seconds HEARTBEAT_INTERVAL{25u};
     std::chrono::steady_clock::time_point heartbeatLastSent = std::chrono::steady_clock::now();
 
