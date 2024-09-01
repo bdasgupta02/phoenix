@@ -134,6 +134,8 @@ public:
 
     Decimal operator+(Decimal const& other) const { return {value + other.value}; }
     Decimal operator-(Decimal const& other) const { return {value - other.value}; }
+    void operator+=(Decimal const& other) { value += other.value; }
+    void operator-=(Decimal const& other) { value -= other.value; }
 
     Decimal operator*(Decimal const& other) const { return {asDouble() * other.asDouble()}; }
     Decimal operator/(Decimal const& other) const { return {asDouble() / other.asDouble()}; }
