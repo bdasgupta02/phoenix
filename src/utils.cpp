@@ -1,11 +1,11 @@
-#include "phoenix/strategies/triangular/utils.hpp"
+#include "phoenix/utils.hpp"
 
 #include <cassert>
 
 #include <pthread.h>
 #include <sched.h>
 
-namespace phoenix::triangular {
+namespace phoenix {
 
 void setMaxThreadPriority()
 {

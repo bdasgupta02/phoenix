@@ -6,7 +6,7 @@
 #include "phoenix/strategies/triangular/eth/hitter.hpp"
 #include "phoenix/strategies/triangular/risk.hpp"
 #include "phoenix/strategies/triangular/stream.hpp"
-#include "phoenix/strategies/triangular/utils.hpp"
+#include "phoenix/utils.hpp"
 
 using namespace phoenix;
 using namespace phoenix::triangular;

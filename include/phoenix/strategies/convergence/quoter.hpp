@@ -268,7 +268,7 @@ private:
             return;
         }
 
-        handler->invoke(tag::Stream::SendQuote{}, quote);
+        handler->invoke(tag::Stream::SendQuotes{}, quote);
         inflight.insert(quote.price.getValue());
         PHOENIX_LOG_INFO(
             handler,

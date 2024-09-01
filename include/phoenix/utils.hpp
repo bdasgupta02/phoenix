@@ -1,6 +1,6 @@
 #pragma once
 
-namespace phoenix::triangular {
+namespace phoenix {
 
 void setMaxThreadPriority();
 

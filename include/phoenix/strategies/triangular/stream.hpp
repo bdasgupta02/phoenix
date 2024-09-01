@@ -194,7 +194,7 @@ private:
                 ++i;
             }
             else
-                PHOENIX_LOG_INFO(handler, "Unknown message type", reader.getMessageType());
+                PHOENIX_LOG_FATAL(handler, "Unknown message type", reader.getMessageType());
         }
 
         // subscribing to incremental
@@ -242,7 +242,6 @@ private:
                 // market data update
                 if (msgType == "X" or msgType == "W") [[likely]]
                 {
-                    [[maybe_unused]] auto mdProfiler = handler->retrieve(tag::Profiler::Guard{}, "MDProfiler");
                     handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), true);
                     continue;
                 }

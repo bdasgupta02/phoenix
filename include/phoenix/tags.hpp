@@ -10,7 +10,7 @@ struct Stream
     struct Stop
     {};
 
-    struct SendQuote
+    struct SendQuotes
     {};
 
     struct TakeMarketOrders

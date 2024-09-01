@@ -11,6 +11,10 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
 - Very latency sensitive
 
+### [In Progress] Pickoff hitter and market maker (sniper) 
+- Attempts to pickoff orders based on changing Deribit index price, and placing limit orders on the other side
+- Very latency sensitive
+
 ## Exchange
 Deribit with TCP and FIX protocol
 

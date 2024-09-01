@@ -1,6 +1,6 @@
 add_library(phoenix 
   data/fix.cpp
-  strategies/triangular/utils.cpp
+  utils.cpp
 )
 
 target_link_libraries(phoenix PUBLIC

@@ -2,19 +2,19 @@
 #include "phoenix/common/profiler.hpp"
 #include "phoenix/data/decimal.hpp"
 #include "phoenix/graph/router.hpp"
-#include "phoenix/strategies/triangular/btc/hitter.hpp"
-#include "phoenix/strategies/triangular/config.hpp"
-#include "phoenix/strategies/triangular/risk.hpp"
-#include "phoenix/strategies/triangular/stream.hpp"
+#include "phoenix/strategies/sniper/config.hpp"
+#include "phoenix/strategies/sniper/hitter.hpp"
+#include "phoenix/strategies/sniper/risk.hpp"
+#include "phoenix/strategies/sniper/stream.hpp"
 #include "phoenix/utils.hpp"
 
 using namespace phoenix;
-using namespace phoenix::triangular;
+using namespace phoenix::sniper;
 
 struct Traits
 {
     using PriceType = Decimal<4u>;
-    using VolumeType = Decimal<4u>;
+    using VolumeType = Decimal<0u>;
 };
 
 // clang-format off
@@ -43,6 +43,6 @@ int main(int argc, char* argv[])
     setMaxThreadPriority();
 
     handler->invoke(tag::Logger::Start{});
-    PHOENIX_LOG_INFO(handler, "Starting BTC/USDT/USDC Triangular Arbitrage System");
+    PHOENIX_LOG_INFO(handler, "Starting sniper System");
     handler->invoke(tag::Stream::Start{});
 }

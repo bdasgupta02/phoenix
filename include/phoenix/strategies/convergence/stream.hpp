@@ -90,7 +90,7 @@ struct Stream : NodeBase
         startPipeline();
     }
 
-    inline void handle(tag::Stream::SendQuote, SingleOrder<Traits>& quote)
+    inline void handle(tag::Stream::SendQuotes, SingleOrder<Traits>& quote)
     {
         auto msg = fixBuilder.newOrderSingle(nextSeqNum, this->getConfig()->instrument, quote);
         sendMsg(msg);
