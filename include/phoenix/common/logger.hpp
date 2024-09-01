@@ -176,8 +176,6 @@ private:
                 logFile->flush();
                 lastFlush = now;
             }
-            else
-                std::this_thread::sleep_for(flushInterval);
 
             std::this_thread::yield();
         }
