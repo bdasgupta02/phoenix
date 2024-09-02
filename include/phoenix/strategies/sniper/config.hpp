@@ -52,6 +52,7 @@ struct Config
                 ("instrument", po::value<std::string>(&instrument)->required(), "The traded instrument")
                 ("lots", po::value<double>(&lotsDouble)->default_value(lotsDouble), "Lot size to order")
                 ("tick-size", po::value<double>(&tickSizeDouble)->default_value(tickSizeDouble), "Min tick size")
+                ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Contract size for this instrument")
                 ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
             ;
             // clang-format on
@@ -101,6 +102,7 @@ struct Config
     std::string instrument;
     Price tickSize;
     Volume lots;
+    double contractSize = 0.0001;
     bool colo = false;
 };
 

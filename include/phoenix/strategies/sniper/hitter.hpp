@@ -43,7 +43,7 @@ struct Hitter : NodeBase
         Price newAsk;
         Price newIndex;
 
-        newIndex.minOrZero(marketData.getDecimal<Price>("100090"));
+        bestIndex.minOrZero(marketData.getDecimal<Price>("100090"));
 
         std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
         for (std::size_t i = 0u; i < numUpdates; ++i)
@@ -104,18 +104,27 @@ struct Hitter : NodeBase
 
         ///////// TRIGGER
 
-        if (!update)
+        if (!update || !bestIndex)
             return;
 
         Price const tickSize = config->tickSize;
+        double const indexDouble = bestIndex.asDouble();
+        double const bidDouble = bestBid.asDouble();
+        double const askDouble = bestAsk.asDouble();
 
         // Case 1: ask on best bid level, bid on best ask - 1 tick size
-        if (bestIndex < bestBid - (tickSize.asDouble() * 10.0))
+        if (indexDouble < bidDouble - (tickSize.asDouble() * 10.0))
+        {
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1] with index at", indexDouble, "BID", bidDouble, "ASK", askDouble);
             quoteSpread(bestBid - tickSize, bestBid);
+        }
 
         // Case 2: bid on best ask level, ask on best bid + tick size
-        if (bestIndex > bestAsk + (tickSize.asDouble() * 10.0))
+        if (indexDouble > bestAsk.asDouble() + (tickSize.asDouble() * 10.0))
+        {
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2] with index at", indexDouble, "BID", bidDouble, "ASK", askDouble);
             quoteSpread(bestAsk, bestAsk + tickSize);
+        }
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -180,8 +189,10 @@ struct Hitter : NodeBase
                 fillMode = false;
                 filled = 0u;
                 auto qty = config->lots;
-                pnlQty += (sentAsk.price.asDouble() - sentBid.price.asDouble()) * qty.asDouble();
-                PHOENIX_LOG_INFO(handler, "All orders filled with pnl", pnlQty, "(in contract size)");
+                auto contract = config->contractSize;
+                auto const& instrument = config->instrument;
+                pnl += (sentAsk.price.asDouble() - sentBid.price.asDouble()) * qty.asDouble() * contract;
+                PHOENIX_LOG_INFO(handler, "All orders filled with PNL", pnl, instrument);
             }
         }
         break;
@@ -250,7 +261,7 @@ private:
     Price bestIndex;
 
     // fill mode
-    static constexpr std::chrono::seconds EXIT_TIME{30u};
+    static constexpr std::chrono::seconds EXIT_TIME{240u};
     bool fillMode = false;
     unsigned filled = 0u;
     Order sentBid;
@@ -258,7 +269,7 @@ private:
     std::chrono::steady_clock::time_point lastOrdered;
 
     // analysis
-    double pnlQty = 0.0;
+    double pnl = 0.0;
 };
 
 } // namespace phoenix::sniper

@@ -151,7 +151,6 @@ private:
         PHOENIX_LOG_INFO(handler, "Starting trading pipeline for", instrument);
 
         getSnapshot(instrument);
-
         auto reader = recvMsg();
         if (reader.isMessageType("W"))
             handler->invoke(tag::Hitter::MDUpdate{}, reader, false);
