@@ -17,6 +17,8 @@ namespace phoenix::sniper {
 // if FOK fills, place opposing side at theo
 // if theo recovers (with threshold / 2), take market order to exit inventory
 
+// Made specifically for BTC/USDC for now
+
 template<typename NodeBase>
 struct Hitter : NodeBase
 {
@@ -59,19 +61,23 @@ struct Hitter : NodeBase
 
         if (fillMode)
         {
+            // adding some stickiness to capture orders due to extreme jitter in prices
+            Price const diffAsk = newAsk > sentAsk.price ? newAsk - sentAsk.price : sentAsk.price - newAsk;
+            Price const diffBid = newBid > sentBid.price ? newBid - sentBid.price : sentBid.price - newBid;
+
             // ask quote to capture spread isn't the top level
-            if (bidSniped && newAsk != sentAsk.price)
+            if (bidSniped && diffAsk > 15.0)
             {
-                Order capture{.price=newAsk, .volume=1.0, .side=2, .takeProfit=true};
+                Order capture{.price=newAsk + 5.0, .volume=1.0, .side=2, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentAsk = capture;
                 PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newBid.asDouble());
             }
 
             // bid quote to capture spread isn't the top level
-            else if (!bidSniped && newBid != sentBid.price)
+            else if (!bidSniped && diffBid > 15.0)
             {
-                Order capture{.price=newBid, .volume=1.0, .side=1, .takeProfit=true};
+                Order capture{.price=newBid - 5.0, .volume=1.0, .side=1, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentBid = capture;
                 PHOENIX_LOG_INFO(handler, "Readjusting bid for capture", newBid.asDouble());
@@ -81,24 +87,33 @@ struct Hitter : NodeBase
         }
 
         ///////// TRIGGER
+        
+        if (isInflight)
+            return;
 
         Price const tickSize = config->tickSize;
 
         if (newIndex < newBid && newIndex < lastIndex - THRESHOLD)
         {
             Order pickoff{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
-            handler->retrieve(tag::Stream::SendQuotes{}, pickoff);
-            sentAsk = pickoff;
-            triggeredIndex = newIndex;
-            PHOENIX_LOG_INFO(handler, "Picking off stale bid", newBid.asDouble(), "with index", newIndex.asDouble());
+            if (handler->retrieve(tag::Stream::SendQuotes{}, pickoff))
+            {
+                sentAsk = pickoff;
+                triggeredIndex = newIndex;
+                isInflight = true;
+                PHOENIX_LOG_INFO(handler, "Picking off stale bid", newBid.asDouble(), "with index", newIndex.asDouble());
+            }
         }
         else if (newIndex > newAsk && newIndex > lastIndex + THRESHOLD)
         {
             Order pickoff{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
-            handler->retrieve(tag::Stream::SendQuotes{}, pickoff);
-            sentBid = pickoff;
-            triggeredIndex = newIndex;
-            PHOENIX_LOG_INFO(handler, "Picking off stale ask", newAsk.asDouble(), "with index", newIndex.asDouble());
+            if (handler->retrieve(tag::Stream::SendQuotes{}, pickoff))
+            {
+                sentBid = pickoff;
+                triggeredIndex = newIndex;
+                isInflight = true;
+                PHOENIX_LOG_INFO(handler, "Picking off stale ask", newAsk.asDouble(), "with index", newIndex.asDouble());
+            }
         }
 
         lastBid = newBid;
@@ -126,17 +141,22 @@ struct Hitter : NodeBase
         switch (status)
         {
         case 1:
-            logOrder("[PARTIAL FILL]", orderId, side, price, remaining);
-            break;
-        case 4: 
-            logOrder("[CANCELLED]", orderId, side, price, remaining);
+            logOrder("[PARTIAL FILL]", clOrderId, side, price, remaining);
             break;
         case 0:
-            logOrder("[NEW ORDER]", orderId, side, price, remaining);
+            logOrder("[NEW ORDER]", clOrderId, side, price, remaining);
             break;
         case 8:
-            PHOENIX_LOG_FATAL(handler, "Order rejected with id", orderId, "and reason", report.getStringView("103"));
+            PHOENIX_LOG_FATAL(handler, "Order rejected with id", clOrderId, "and reason", report.getStringView("103"));
             break;
+
+        case 4: 
+        {
+            logOrder("[CANCELLED]", clOrderId, side, price, remaining);
+            if (!isCaptureOrder)
+                isInflight = false;
+        }
+        break;
 
         case 2:
         {
@@ -153,18 +173,18 @@ struct Hitter : NodeBase
             if (totalQty && avgFillPrice)
                 avgFillPrice /= totalQty;
 
-            logOrder("[FILL]", orderId, side, avgFillPrice, remaining);
+            logOrder("[FILL]", clOrderId, side, avgFillPrice, remaining);
             
             if (isCaptureOrder)
             {
-                pnl += (sentAsk.price - sentBid.price).asDouble();
+                pnl += sentAsk.price.asDouble() - sentBid.price.asDouble();
                 PHOENIX_LOG_INFO(handler, "Current PNL (in qty):", pnl);
                 fillMode = false;
             }
             else 
             {
                 Order capture{
-                    .price=reversedSide == 1 ? lastBid : lastAsk,
+                    .price=reversedSide == 1 ? lastBid - 15.0 : lastAsk + 15.0,
                     .volume=1.0,
                     .side=reversedSide,
                     .takeProfit=true
@@ -173,6 +193,7 @@ struct Hitter : NodeBase
                 while (!handler->retrieve(tag::Stream::SendQuotes{}, capture))
                     _mm_pause();
 
+                isInflight = false;
                 fillMode = true;
                 bidSniped = side == 1;
                 if (side == 1)
@@ -224,11 +245,11 @@ private:
 
     // fill mode
     bool fillMode = false;
+    bool isInflight = false;
     bool bidSniped;
 
     // trigger 
-    static constexpr Price THRESHOLD{10.0};
-    static constexpr Price HALF_THRESHOLD{THRESHOLD.getValue() / 2u};
+    static constexpr Price THRESHOLD{30.0};
     Order sentBid;
     Order sentAsk;
     Price triggeredIndex;

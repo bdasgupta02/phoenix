@@ -24,6 +24,7 @@ consteval std::uint64_t getMultiplier()
 }
 } // namespace detail
 
+// unsigned
 template<std::uint8_t Precision>
 class Decimal
 {
