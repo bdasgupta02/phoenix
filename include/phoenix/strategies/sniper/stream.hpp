@@ -103,10 +103,7 @@ struct Stream : NodeBase
             msgCountInterval = sizeof...(orders);
         }
         else
-        {
-            PHOENIX_LOG_WARN(handler, "Orders rejected with msgCountInterval:", msgCountInterval);
             return false;
-        }
 
         auto const sendOrder = [this, handler](SingleOrder<Traits> const& order)
         {

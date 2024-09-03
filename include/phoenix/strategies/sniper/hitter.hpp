@@ -8,6 +8,8 @@
 
 #include <chrono>
 
+#include <immintrin.h>
+
 namespace phoenix::sniper {
 
 // Pickoff hitting strategy for spots
@@ -17,6 +19,33 @@ namespace phoenix::sniper {
 // Confirmed this hypothesis on BTC/USDC
 
 // TODO: add index comparison threshold for trigger
+
+template<typename Price, std::size_t WindowSize>
+struct RollingAverage
+{
+    void add(Price value)
+    {
+        if (filled)
+            sum -= values[index];
+
+        values[index] = value;
+        sum += value;
+        
+        index = (index + 1u) % WindowSize;
+        if (index == 0u)
+            filled = true;
+    }
+
+    Price get() const
+    {
+        return sum / (filled ? Price{static_cast<double>(WindowSize)} : Price{static_cast<double>(index)});
+    }
+
+    std::array<Price, WindowSize> values{};
+    std::size_t index = 0u;
+    Price sum = 0.0;
+    bool filled = false;
+};
 
 template<typename NodeBase>
 struct Hitter : NodeBase
@@ -59,6 +88,9 @@ struct Hitter : NodeBase
             bestBid = newBid;
         if (newAsk)
             bestAsk = newAsk;
+        
+        if (bestIndex)
+            avgIndex.add(bestIndex);
 
         ///////// EXITING POSITION
 
@@ -71,29 +103,47 @@ struct Hitter : NodeBase
                 {
                 // none filled
                 case 0u:
+                {
                     PHOENIX_LOG_INFO(handler, "Cancelling both unfilled orders");
                     handler->invoke(tag::Stream::CancelQuote{}, sentBid.orderId);
                     handler->invoke(tag::Stream::CancelQuote{}, sentAsk.orderId);
-                    break;
+                    fillMode = false;
+                    filled = 0u;
+                }
+                break;
 
                 // 1 filled (problem)
+                // can't take market orders due to wide spreads on deribit spots
                 case 1u:
-                    PHOENIX_LOG_WARN(handler, "Exiting one sided stale order");
+                {
+                    PHOENIX_LOG_WARN(handler, "Exiting one sided stale order, retrying..");
 
+                    Price const tickSize = config->tickSize;
+                    
                     if (!sentBid.isFilled)
                     {
                         handler->invoke(tag::Stream::CancelQuote{}, sentBid.orderId);
-                        sentBid.isLimit = false;
-                        handler->invoke(tag::Stream::TakeMarketOrders{}, sentBid);
+                        if (sentAsk.price > bestBid)
+                            sentBid.price = bestBid;
+                        else 
+                            sentBid.price = bestBid - (tickSize * 5.0);
+                        while (!handler->retrieve(tag::Stream::SendQuotes{}, sentBid))
+                            _mm_pause();
                     }
 
                     if (!sentAsk.isFilled)
                     {
                         handler->invoke(tag::Stream::CancelQuote{}, sentAsk.orderId);
-                        sentAsk.isLimit = false;
-                        handler->invoke(tag::Stream::TakeMarketOrders{}, sentAsk);
+                        if (sentBid.price < bestAsk)
+                            sentAsk.price = bestAsk;
+                        else 
+                            sentAsk.price = bestAsk + (tickSize * 5.0);
+                        while (!handler->retrieve(tag::Stream::SendQuotes{}, sentAsk))
+                            _mm_pause();
                     }
-                    break;
+                    lastOrdered = std::chrono::steady_clock::now();
+                }
+                break;
 
                 default: PHOENIX_LOG_FATAL(handler, "Invalid filled value:", filled); break;
                 };
@@ -105,26 +155,73 @@ struct Hitter : NodeBase
         ///////// TRIGGER
 
         if (!update || !bestIndex)
+        {
+            PHOENIX_LOG_WARN(handler, "Update or index invalid");
+            return;
+        }
+
+        if (!avgIndex.filled)
             return;
 
         Price const tickSize = config->tickSize;
-        double const indexDouble = bestIndex.asDouble();
-        double const bidDouble = bestBid.asDouble();
-        double const askDouble = bestAsk.asDouble();
 
-        // Case 1: ask on best bid level, bid on best ask - 1 tick size
-        if (indexDouble < bidDouble - (tickSize.asDouble() * 10.0))
+        // Simple diming market maker
+        Price const raIndex = avgIndex.get();
+        double const diff = bestIndex.asDouble() - raIndex.asDouble();
+        if (raIndex < bestIndex)
         {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 1] with index at", indexDouble, "BID", bidDouble, "ASK", askDouble);
-            quoteSpread(bestBid - tickSize, bestBid);
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 1] avg:", raIndex.asDouble(), "best:", bestIndex.asDouble());
+            Price const bidding = bestIndex - (tickSize * diff * 10.0);
+            Price const asking = bestIndex + (tickSize * diff * 30.0);
+            quoteSpread(bidding, asking);
+        }
+        else if (raIndex > bestIndex)
+        {
+            PHOENIX_LOG_INFO(handler, "[OPP CASE 2] avg:", raIndex.asDouble(), "best:", bestIndex.asDouble());
+            Price const bidding = bestIndex - (tickSize * diff * 30.0);
+            Price const asking = bestIndex + (tickSize * diff * 10.0);
+            quoteSpread(bidding, asking);
+        }
+        else 
+        {
+            Price const bidding = bestIndex - (tickSize * 30.0);
+            Price const asking = bestIndex + (tickSize * 30.0);
+            quoteSpread(bidding, asking);
         }
 
-        // Case 2: bid on best ask level, ask on best bid + tick size
-        if (indexDouble > bestAsk.asDouble() + (tickSize.asDouble() * 10.0))
-        {
-            PHOENIX_LOG_INFO(handler, "[OPP CASE 2] with index at", indexDouble, "BID", bidDouble, "ASK", askDouble);
-            quoteSpread(bestAsk, bestAsk + tickSize);
-        }
+        /*double const indexDouble = bestIndex.asDouble();*/
+        /*double const bidDouble = bestBid.asDouble();*/
+        /*double const askDouble = bestAsk.asDouble();*/
+        /**/
+        /*// Case 1: ask on best bid level, bid on best bid - x * tick size*/
+        /*if (indexDouble < bidDouble - (tickSize.asDouble() * 20.0))*/
+        /*{*/
+        /*    Price const bidding = bestBid - (tickSize * 9.0);*/
+        /*    Price const asking = bestBid;*/
+        /*    if (bidding < asking && case1Streak >= 20u)*/
+        /*    {*/
+        /*        PHOENIX_LOG_INFO(handler, "[OPP CASE 1] with index at", indexDouble, "BID", bidDouble, "ASK", askDouble);*/
+        /*        quoteSpread(bidding, asking);*/
+        /*    }*/
+        /*    ++case1Streak;*/
+        /*}*/
+        /*else*/
+        /*    case1Streak = 0u; */
+        /**/
+        /*// Case 2: bid on best ask level, ask on best ask + x * tick size*/
+        /*if (indexDouble > bestAsk.asDouble() + (tickSize.asDouble() * 20.0))*/
+        /*{*/
+        /*    Price const bidding = bestAsk;*/
+        /*    Price const asking = bestAsk + (tickSize * 9.0);*/
+        /*    if (bidding < asking && case2Streak >= 20u)*/
+        /*    {*/
+        /*        PHOENIX_LOG_INFO(handler, "[OPP CASE 2] with index at", indexDouble, "BID", bidDouble, "ASK", askDouble);*/
+        /*        quoteSpread(bidding, asking);*/
+        /*    }*/
+        /*    ++case2Streak;*/
+        /*}*/
+        /*else */
+        /*    case2Streak = 0u; */
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -142,8 +239,12 @@ struct Hitter : NodeBase
 
         switch (status)
         {
-        case 1: logOrder("[PARTIAL FILL]", orderId, side, price, remaining); break;
-        case 4: logOrder("[CANCELLED]", orderId, side, price, remaining); break;
+        case 1:
+            logOrder("[PARTIAL FILL]", orderId, side, price, remaining);
+            break;
+        case 4: 
+            logOrder("[CANCELLED]", orderId, side, price, remaining);
+            break;
 
         case 0:
         {
@@ -188,11 +289,10 @@ struct Hitter : NodeBase
             {
                 fillMode = false;
                 filled = 0u;
-                auto qty = config->lots;
-                auto contract = config->contractSize;
                 auto const& instrument = config->instrument;
-                pnl += (sentAsk.price.asDouble() - sentBid.price.asDouble()) * qty.asDouble() * contract;
-                PHOENIX_LOG_INFO(handler, "All orders filled with PNL", pnl, instrument);
+                pnl += sentAsk.price.asDouble() - sentBid.price.asDouble();
+                PHOENIX_LOG_INFO(handler, "All orders filled with PNL (in edge)", pnl, instrument);
+                PHOENIX_LOG_VERIFY(handler, (pnl > -150), "Too much loss");
             }
         }
         break;
@@ -201,8 +301,16 @@ struct Hitter : NodeBase
         {
             auto reason = report.getStringView("103");
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
-            if (--filled == 0u)
+            if (side == 1 && sentBid.isActive)
+                sentBid.isActive = false;
+            else if (sentAsk.isActive)
+                sentAsk.isActive = false;
+
+            if (!sentBid.isActive && !sentAsk.isActive)
+            {
                 fillMode = false;
+                filled = 0u;
+            }
         }
         break;
 
@@ -261,12 +369,19 @@ private:
     Price bestIndex;
 
     // fill mode
-    static constexpr std::chrono::seconds EXIT_TIME{240u};
+    static constexpr std::chrono::milliseconds EXIT_TIME{4000u};
+    // static constexpr std::chrono::seconds EXIT_TIME{20u};
     bool fillMode = false;
     unsigned filled = 0u;
     Order sentBid;
     Order sentAsk;
     std::chrono::steady_clock::time_point lastOrdered;
+
+    // triggers 
+    std::size_t case1Streak = 0u;
+    std::size_t case2Streak = 0u;
+
+    RollingAverage<Price, 80u> avgIndex;
 
     // analysis
     double pnl = 0.0;
