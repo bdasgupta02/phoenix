@@ -61,14 +61,14 @@ struct Hitter : NodeBase
 
         if (fillMode)
         {
-            // adding some stickiness to capture orders due to extreme jitter in prices
-            Price const diffAsk = newAsk > sentAsk.price ? newAsk - sentAsk.price : sentAsk.price - newAsk;
-            Price const diffBid = newBid > sentBid.price ? newBid - sentBid.price : sentBid.price - newBid;
+            // adding some stickiness for exit trigger to capture orders due to extreme jitter in prices
+            Price const diffAsk = newAsk < sentAsk.price ? sentAsk.price - newAsk : 0.0;
+            Price const diffBid = newBid > sentBid.price ? newBid - sentBid.price : 0.0;
 
             // ask quote to capture spread isn't the top level
             if (bidSniped && diffAsk > 15.0)
             {
-                Order capture{.price=newAsk + 5.0, .volume=1.0, .side=2, .takeProfit=true};
+                Order capture{.price=newAsk, .volume=1.0, .side=2, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentAsk = capture;
                 PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newBid.asDouble());
@@ -77,7 +77,7 @@ struct Hitter : NodeBase
             // bid quote to capture spread isn't the top level
             else if (!bidSniped && diffBid > 15.0)
             {
-                Order capture{.price=newBid - 5.0, .volume=1.0, .side=1, .takeProfit=true};
+                Order capture{.price=newBid, .volume=1.0, .side=1, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentBid = capture;
                 PHOENIX_LOG_INFO(handler, "Readjusting bid for capture", newBid.asDouble());
@@ -93,9 +93,9 @@ struct Hitter : NodeBase
 
         Price const tickSize = config->tickSize;
 
-        if (newIndex < newBid && newIndex < lastIndex - THRESHOLD)
+        if (newIndex < newBid - THRESHOLD && newIndex < lastIndex)
         {
-            Order pickoff{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
+            Order pickoff{.price=newIndex + 20.0, .volume=1.0, .side=2, .isFOK=true};
             if (handler->retrieve(tag::Stream::SendQuotes{}, pickoff))
             {
                 sentAsk = pickoff;
@@ -104,9 +104,9 @@ struct Hitter : NodeBase
                 PHOENIX_LOG_INFO(handler, "Picking off stale bid", newBid.asDouble(), "with index", newIndex.asDouble());
             }
         }
-        else if (newIndex > newAsk && newIndex > lastIndex + THRESHOLD)
+        else if (newIndex > newAsk + THRESHOLD && newIndex > lastIndex)
         {
-            Order pickoff{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
+            Order pickoff{.price=newIndex - 20.0, .volume=1.0, .side=1, .isFOK=true};
             if (handler->retrieve(tag::Stream::SendQuotes{}, pickoff))
             {
                 sentBid = pickoff;
