@@ -105,7 +105,7 @@ public:
 
     double asDouble() const { return static_cast<double>(value) / multiplier; }
 
-    std::uint64_t getValue() const { return value; }
+    constexpr std::uint64_t getValue() const { return value; }
 
     std::string str() const
     {
@@ -139,6 +139,8 @@ public:
 
     Decimal operator*(Decimal const& other) const { return {asDouble() * other.asDouble()}; }
     Decimal operator/(Decimal const& other) const { return {asDouble() / other.asDouble()}; }
+    Decimal operator*(double other) const { return {asDouble() * other}; }
+    Decimal operator/(double other) const { return {asDouble() / other}; }
 
     auto operator<=>(double other) { return as<double>() <=> other; }
     auto operator<=>(std::integral auto other) { return value <=> other; }

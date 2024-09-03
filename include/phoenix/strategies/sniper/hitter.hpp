@@ -55,9 +55,28 @@ struct Hitter : NodeBase
         PHOENIX_LOG_VERIFY(handler, (newBid && newAsk && newIndex), "Missing prices in MD");
 
         ///////// EXITING POSITION
+        // simply tries to join best level for now
 
         if (fillMode)
         {
+            // ask quote to capture spread isn't the top level
+            if (bidSniped && newAsk != sentAsk.price)
+            {
+                Order capture{.price=newAsk, .volume=1.0, .side=2, .takeProfit=true};
+                handler->retrieve(tag::Stream::SendQuotes{}, capture);
+                sentAsk = capture;
+                PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newBid.asDouble());
+            }
+
+            // bid quote to capture spread isn't the top level
+            else if (!bidSniped && newBid != sentBid.price)
+            {
+                Order capture{.price=newBid, .volume=1.0, .side=1, .takeProfit=true};
+                handler->retrieve(tag::Stream::SendQuotes{}, capture);
+                sentBid = capture;
+                PHOENIX_LOG_INFO(handler, "Readjusting bid for capture", newBid.asDouble());
+            }
+
             return;
         }
 
@@ -65,7 +84,22 @@ struct Hitter : NodeBase
 
         Price const tickSize = config->tickSize;
 
-
+        if (newIndex < newBid && newIndex < lastIndex - THRESHOLD)
+        {
+            Order pickoff{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
+            handler->retrieve(tag::Stream::SendQuotes{}, pickoff);
+            sentAsk = pickoff;
+            triggeredIndex = newIndex;
+            PHOENIX_LOG_INFO(handler, "Picking off stale bid", newBid.asDouble(), "with index", newIndex.asDouble());
+        }
+        else if (newIndex > newAsk && newIndex > lastIndex + THRESHOLD)
+        {
+            Order pickoff{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
+            handler->retrieve(tag::Stream::SendQuotes{}, pickoff);
+            sentBid = pickoff;
+            triggeredIndex = newIndex;
+            PHOENIX_LOG_INFO(handler, "Picking off stale ask", newAsk.asDouble(), "with index", newIndex.asDouble());
+        }
 
         lastBid = newBid;
         lastAsk = newAsk;
@@ -85,6 +119,10 @@ struct Hitter : NodeBase
         auto price = report.getDecimal<Price>("44");
         PHOENIX_LOG_VERIFY(handler, (!price.error && !remaining.error), "Decimal parse error");
 
+        bool const isCaptureOrder = clOrderId.size() > 0u && clOrderId[0] == 't';
+        unsigned const reversedSide = side == 1 ? 2 : 1;
+
+        // clang-format off
         switch (status)
         {
         case 1:
@@ -93,17 +131,12 @@ struct Hitter : NodeBase
         case 4: 
             logOrder("[CANCELLED]", orderId, side, price, remaining);
             break;
-
         case 0:
-        {
             logOrder("[NEW ORDER]", orderId, side, price, remaining);
-            fillMode = true;
-            if (side == 1)
-                sentBid.orderId = orderId;
-            else
-                sentAsk.orderId = orderId;
-        }
-        break;
+            break;
+        case 8:
+            PHOENIX_LOG_FATAL(handler, "Order rejected with id", orderId, "and reason", report.getStringView("103"));
+            break;
 
         case 2:
         {
@@ -121,19 +154,40 @@ struct Hitter : NodeBase
                 avgFillPrice /= totalQty;
 
             logOrder("[FILL]", orderId, side, avgFillPrice, remaining);
+            
+            if (isCaptureOrder)
+            {
+                pnl += (sentAsk.price - sentBid.price).asDouble();
+                PHOENIX_LOG_INFO(handler, "Current PNL (in qty):", pnl);
+                fillMode = false;
+            }
+            else 
+            {
+                Order capture{
+                    .price=reversedSide == 1 ? lastBid : lastAsk,
+                    .volume=1.0,
+                    .side=reversedSide,
+                    .takeProfit=true
+                };
 
+                while (!handler->retrieve(tag::Stream::SendQuotes{}, capture))
+                    _mm_pause();
+
+                fillMode = true;
+                bidSniped = side == 1;
+                if (side == 1)
+                    sentAsk = capture;
+                else 
+                    sentBid = capture;
+            }
         }
         break;
 
-        case 8:
-        {
-            auto reason = report.getStringView("103");
-            logOrder("[REJECTED]", orderId, side, price, remaining, reason);
-        }
-        break;
-
-        default: PHOENIX_LOG_WARN(handler, "Other status type", status); break;
+        default:
+            PHOENIX_LOG_WARN(handler, "Other status type", status);
+            break;
         };
+        // clang-format on
     }
 
 private:
@@ -170,8 +224,14 @@ private:
 
     // fill mode
     bool fillMode = false;
+    bool bidSniped;
+
+    // trigger 
+    static constexpr Price THRESHOLD{10.0};
+    static constexpr Price HALF_THRESHOLD{THRESHOLD.getValue() / 2u};
     Order sentBid;
     Order sentAsk;
+    Price triggeredIndex;
 
     // analysis
     double pnl = 0.0;

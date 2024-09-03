@@ -87,34 +87,27 @@ struct Stream : NodeBase
         startPipeline();
     }
 
-    template<typename... Orders>
     [[gnu::hot, gnu::always_inline]]
-    inline bool handle(tag::Stream::SendQuotes, Orders&&... orders)
+    inline bool handle(tag::Stream::SendQuotes, SingleOrder<Traits> const& order)
     {
         auto* config = this->getConfig();
         auto* handler = this->getHandler();
 
         auto nextAllowed = lastSent + interval;
-        if (msgCountInterval <= 5u - sizeof...(orders))
-            msgCountInterval += sizeof...(orders);
+        if (msgCountInterval <= 3u) // -1 to avoid false positive throttle violations
+            ++msgCountInterval;
         else if (std::chrono::steady_clock::now() >= nextAllowed)
         {
             lastSent = std::chrono::steady_clock::now();
-            msgCountInterval = sizeof...(orders);
+            ++msgCountInterval;
         }
         else
             return false;
 
-        auto const sendOrder = [this, handler](SingleOrder<Traits> const& order)
-        {
-            PHOENIX_LOG_INFO(
-                handler, "Sending quote", order.symbol, order.volume.asDouble(), order.side == 1 ? "BID" : "ASK");
+        std::string_view msg = fixBuilder.newOrderSingle(nextSeqNum, config->instrument, order);
+        sendUnthrottled(msg);
 
-            std::string_view msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
-            sendUnthrottled(msg);
-        };
-
-        (sendOrder(orders), ...);
+        PHOENIX_LOG_INFO(handler, "Sending quote", config->instrument, order.volume.asDouble(), order.side == 1 ? "BID" : "ASK");
         return true;
     }
 

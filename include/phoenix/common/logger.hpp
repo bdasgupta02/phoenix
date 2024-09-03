@@ -50,7 +50,7 @@ consteval std::string_view getFilename(std::string_view path)
 #define PHOENIX_LOG_FATAL(handler, ...) \
     handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, PHOENIX_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 #define PHOENIX_LOG_VERIFY(handler, condition, ...) \
-    handler->invoke(tag::Logger::Verify{}, condition, PHOENIX_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
+    handler->invoke(tag::Logger::Verify{}, condition, PHOENIX_LOG_DETAIL_CURRENT_FILE, __LINE__, #condition, __VA_ARGS__)
 // clang-format on
 
 template<typename NodeBase>
