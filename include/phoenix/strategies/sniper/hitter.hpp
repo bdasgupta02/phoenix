@@ -15,34 +15,7 @@ namespace phoenix::sniper {
 // Pickoff hitting strategy for spots
 // if theo falls/rises abruptly, pickoff stale entries with FOK
 // if FOK fills, place opposing side at theo
-// if theo recovers (with threshold), take market order to exit inventory
-
-template<typename Price, std::size_t WindowSize>
-struct RollingAverage
-{
-    void add(Price value)
-    {
-        if (filled)
-            sum -= values[index];
-
-        values[index] = value;
-        sum += value;
-        
-        index = (index + 1u) % WindowSize;
-        if (index == 0u)
-            filled = true;
-    }
-
-    Price get() const
-    {
-        return sum / (filled ? Price{static_cast<double>(WindowSize)} : Price{static_cast<double>(index)});
-    }
-
-    std::array<Price, WindowSize> values{};
-    std::size_t index = 0u;
-    Price sum = 0.0;
-    bool filled = false;
-};
+// if theo recovers (with threshold / 2), take market order to exit inventory
 
 template<typename NodeBase>
 struct Hitter : NodeBase
@@ -61,18 +34,14 @@ struct Hitter : NodeBase
     {}
 
     [[gnu::hot, gnu::always_inline]]
-    inline void handle(tag::Hitter::MDUpdate, FIXReader& marketData, bool const update = true)
+    inline void handle(tag::Hitter::MDUpdate, FIXReader& marketData)
     {
         ///////// UPDATE PRICES
 
         Price newBid;
         Price newAsk;
-        Price newIndex;
 
-        bestIndex.minOrZero(marketData.getDecimal<Price>("100090"));
-
-        std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
-        for (std::size_t i = 0u; i < numUpdates; ++i)
+        for (std::size_t i = 0u; i < 2u; ++i)
         {
             unsigned const typeField = marketData.getNumber<unsigned>("269", i);
             if (typeField == 0u)
@@ -81,10 +50,9 @@ struct Hitter : NodeBase
                 newAsk.minOrZero(marketData.getDecimal<Price>("270", i));
         }
 
-        if (newBid)
-            bestBid = newBid;
-        if (newAsk)
-            bestAsk = newAsk;
+        Price const newIndex = marketData.getDecimal<Price>("100090");
+
+        PHOENIX_LOG_VERIFY(handler, (newBid && newAsk && newIndex), "Missing prices in MD");
 
         ///////// EXITING POSITION
 
@@ -95,13 +63,13 @@ struct Hitter : NodeBase
 
         ///////// TRIGGER
 
-        if (!update || !bestIndex)
-        {
-            PHOENIX_LOG_WARN(handler, "Update or index invalid");
-            return;
-        }
-
         Price const tickSize = config->tickSize;
+
+
+
+        lastBid = newBid;
+        lastAsk = newAsk;
+        lastIndex = newIndex;
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -196,9 +164,9 @@ private:
     Config const* const config;
 
     // best prices
-    Price bestBid;
-    Price bestAsk;
-    Price bestIndex;
+    Price lastBid;
+    Price lastAsk;
+    Price lastIndex;
 
     // fill mode
     bool fillMode = false;

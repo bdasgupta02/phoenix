@@ -147,12 +147,12 @@ private:
 
         PHOENIX_LOG_INFO(handler, "Starting trading pipeline for", instrument);
 
-        getSnapshot(instrument);
-        auto reader = recvMsg();
-        if (reader.isMessageType("W"))
-            handler->invoke(tag::Hitter::MDUpdate{}, reader, false);
-        else
-            PHOENIX_LOG_FATAL(handler, "Unknown message type", reader.getMessageType());
+        /*getSnapshot(instrument);*/
+        /*auto reader = recvMsg();*/
+        /*if (reader.isMessageType("W"))*/
+        /*    handler->invoke(tag::Hitter::MDUpdate{}, reader, false);*/
+        /*else*/
+        /*    PHOENIX_LOG_FATAL(handler, "Unknown message type", reader.getMessageType());*/
 
         // subscribing to incremental
         subscribeToOne(instrument);
@@ -185,23 +185,20 @@ private:
                 auto const& recvInstrument = reader.getString("55");
                 if (recvInstrument != instrument)
                     continue;
-
                 // market data update
-                if (msgType == "X" or msgType == "W") [[likely]]
+                else if (msgType == "W" or msgType == "X") [[likely]]
                 {
-                    handler->invoke(tag::Hitter::MDUpdate{}, reader, true);
+                    handler->invoke(tag::Hitter::MDUpdate{}, reader);
                     continue;
                 }
-
                 // execution report
-                if (msgType == "8")
+                else if (msgType == "8")
                 {
                     handler->invoke(tag::Hitter::ExecutionReport{}, reader);
                     continue;
                 }
-
                 // MD reject
-                if (msgType == "Y") [[unlikely]]
+                else if (msgType == "Y") [[unlikely]]
                 {
                     PHOENIX_LOG_FATAL(handler, "MD reject message received");
                     continue;

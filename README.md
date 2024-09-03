@@ -12,8 +12,8 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - Very latency sensitive
 
 ### [In Progress] Pickoff hitter and market maker (sniper) 
-- Attempts to pickoff orders based on changing Deribit index price, and placing limit orders on the other side
-- Very latency sensitive
+- Attempts to pickoff orders based on changing Deribit index price
+- Extremely latency sensitive (sub-milli)
 
 ## Exchange
 Deribit with TCP and FIX protocol
