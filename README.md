@@ -11,12 +11,12 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
 - Very latency sensitive
 
-### [In Progress] Pickoff hitter and market maker (sniper) 
-- Attempts to pickoff orders based on changing Deribit index price
-- Extremely latency sensitive (sub-milli)
+### "Sniper" Pickoff hitter and market maker (sniper) 
+- Attempts to pickoff stale orders in the book based on changing Deribit index price
+- Extremely latency sensitive, colo is a must
 
 ## Exchange
-Deribit with TCP and FIX protocol
+Deribit with TCP and FIX protocol. The exchange has a weird quirk where it reflects the extreme volatility of these overarching crypto spot markets, but is illiquid with very wide spreads and low daily volumes (BTC/USDC is the highest volume spot pair for instance, with just 6 mil USD a day). Definitely provides a nice unique challenge to have fun with. There's random spikes in volume for spots however, for instance USDC/USDT gets tons of activity in volatile BTC markets when big players try to offload their position or hedge derivatives. There's tons of room for experimentation here.
 
 ## Tech stack
 - Arch Linux
