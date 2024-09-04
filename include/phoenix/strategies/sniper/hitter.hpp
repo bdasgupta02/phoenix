@@ -58,10 +58,26 @@ struct Hitter : NodeBase
         PHOENIX_LOG_VERIFY(handler, (newBid && newAsk && newIndex), "Missing prices in MD");
 
         ///////// EXITING POSITION
-        // simply tries to join best level for now
 
         if (fillMode)
         {
+            // short-circuit take-profit exit
+            if (bidSniped && newAsk < sentBid.price)
+            {
+                Order capture{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
+                PHOENIX_LOG_INFO(handler, "Readjusting ask for capture (short-circuit)", newBid.asDouble());
+                return;
+            }
+            
+            if (!bidSniped && newBid > sentAsk.price)
+            {
+                Order capture{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
+                PHOENIX_LOG_INFO(handler, "Readjusting bid for capture (short-circuit)", newAsk.asDouble());
+                return;
+            }
+
+            // join best levels otherwise
+
             // adding some stickiness for exit trigger to capture orders due to extreme jitter in prices
             Price const diffAsk = newAsk < sentAsk.price ? sentAsk.price - newAsk : 0.0;
             Price const diffBid = newBid > sentBid.price ? newBid - sentBid.price : 0.0;
@@ -72,7 +88,7 @@ struct Hitter : NodeBase
                 Order capture{.price=newAsk, .volume=1.0, .side=2, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentAsk = capture;
-                PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newBid.asDouble());
+                PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newAsk.asDouble());
             }
 
             // bid quote to capture spread isn't the top level
