@@ -82,6 +82,10 @@ struct Logger : NodeBase
         std::stringstream ss;
         ss << config->logFolder;
         ss << '/';
+
+        if (isCSV)
+            ss << "CSV-";
+
         ss << config->instrument << "-";
         ss << std::put_time(std::gmtime(&inTimeT), "%Y-%m-%dT%H:%M:%SZ");
 
