@@ -3,15 +3,16 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 
 ## Strategies
 ### Equivalent coin pair convergence arbitrage
-- Arbitrage based market-making with a bias towards a price of 1 - without much latency requirement due to illiquid markets
+- Arbitrage based market-making with a bias towards a price of 1 - without any latency requirement due to illiquid markets
+- Low-risk and deterministic, but very low upside
 - e.g. USDC/USDT, STETH/ETH
 
 ### Triangular arbitrage across multiple books for equivalent coins
 - Fast market orders to instantly capture opportunities across 3 books
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
-- Very latency sensitive
+- Very latency sensitive, and slippage is a big issue even with colo (perhaps the matching engine batches orders or is non-deterministic)
 
-### "Sniper" Pickoff hitter and market maker (sniper) 
+### "Sniper" simple pickoff hitter
 - Attempts to pickoff stale orders in the book based on changing Deribit index price
 - Extremely latency sensitive, colo is a must
 
