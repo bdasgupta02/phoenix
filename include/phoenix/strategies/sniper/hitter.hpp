@@ -68,18 +68,28 @@ struct Hitter : NodeBase
             // short-circuit take-profit exit
             if (bidSniped && newAsk < sentBid.price)
             {
+                handler->invoke(tag::Stream::CancelQuote{}, sentAsk.orderId);
                 Order capture{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
-                isInflightCapture = true;
-                PHOENIX_LOG_INFO(handler, "Readjusting ask for capture (short-circuit)", newBid.asDouble());
-                return;
+                if (!handler->retrieve(tag::Stream::SendQuotes{}, capture))
+                {
+                    sentAsk = capture;
+                    isInflightCapture = true;
+                    PHOENIX_LOG_INFO(handler, "Readjusting ask for capture (short-circuit)", newBid.asDouble());
+                    return;
+                }
             }
             
             if (!bidSniped && newBid > sentAsk.price)
             {
+                handler->invoke(tag::Stream::CancelQuote{}, sentBid.orderId);
                 Order capture{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
-                isInflightCapture = true;
-                PHOENIX_LOG_INFO(handler, "Readjusting bid for capture (short-circuit)", newAsk.asDouble());
-                return;
+                if (handler->retrieve(tag::Stream::SendQuotes{}, capture))
+                {
+                    sentBid = capture;
+                    isInflightCapture = true;
+                    PHOENIX_LOG_INFO(handler, "Readjusting bid for capture (short-circuit)", newAsk.asDouble());
+                    return;
+                }
             }
 
             // join best levels otherwise
@@ -89,23 +99,29 @@ struct Hitter : NodeBase
             Price const diffBid = newBid > sentBid.price ? newBid - sentBid.price : 0.0;
 
             // ask quote to capture spread isn't the top level
-            if (bidSniped && diffAsk > 15.0)
+            if (bidSniped && diffAsk > 5.0)
             {
+                handler->invoke(tag::Stream::CancelQuote{}, sentAsk.orderId);
                 Order capture{.price=newAsk, .volume=1.0, .side=2, .takeProfit=true};
-                handler->retrieve(tag::Stream::SendQuotes{}, capture);
-                sentAsk = capture;
-                isInflightCapture = true;
-                PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newAsk.asDouble());
+                if (!handler->retrieve(tag::Stream::SendQuotes{}, capture))
+                {
+                    sentAsk = capture;
+                    isInflightCapture = true;
+                    PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newAsk.asDouble());
+                }
             }
 
             // bid quote to capture spread isn't the top level
-            else if (!bidSniped && diffBid > 15.0)
+            else if (!bidSniped && diffBid > 5.0)
             {
+                handler->invoke(tag::Stream::CancelQuote{}, sentBid.orderId);
                 Order capture{.price=newBid, .volume=1.0, .side=1, .takeProfit=true};
-                handler->retrieve(tag::Stream::SendQuotes{}, capture);
-                sentBid = capture;
-                isInflightCapture = true;
-                PHOENIX_LOG_INFO(handler, "Readjusting bid for capture", newBid.asDouble());
+                if (handler->retrieve(tag::Stream::SendQuotes{}, capture))
+                {
+                    sentBid = capture;
+                    isInflightCapture = true;
+                    PHOENIX_LOG_INFO(handler, "Readjusting bid for capture", newBid.asDouble());
+                }
             }
 
             return;
@@ -176,6 +192,10 @@ struct Hitter : NodeBase
             logOrder("[NEW ORDER]", clOrderId, side, price, remaining);
             if (isCaptureOrder)
                 isInflightCapture = false;
+            if (side == 1)
+                sentBid.orderId = orderId;
+            else 
+                sentAsk.orderId = orderId;
             break;
 
         case 4: 
@@ -281,7 +301,7 @@ private:
     bool bidSniped;
 
     // trigger 
-    static constexpr Price THRESHOLD{20.0};
+    static constexpr Price THRESHOLD{10.0};
     Order sentBid;
     Order sentAsk;
     Price triggeredIndex;
