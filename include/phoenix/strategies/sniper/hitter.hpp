@@ -18,6 +18,7 @@ namespace phoenix::sniper {
 // if theo recovers (with threshold / 2), take market order to exit inventory
 
 // Made specifically for BTC/USDC for now
+// and albeit simple, it's designed to bet towards short-term run-offs
 
 template<typename NodeBase>
 struct Hitter : NodeBase
@@ -95,7 +96,7 @@ struct Hitter : NodeBase
 
         if (newIndex < newBid - THRESHOLD && newIndex < lastIndex)
         {
-            Order pickoff{.price=newIndex + 20.0, .volume=1.0, .side=2, .isFOK=true};
+            Order pickoff{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
             if (handler->retrieve(tag::Stream::SendQuotes{}, pickoff))
             {
                 sentAsk = pickoff;
@@ -106,7 +107,7 @@ struct Hitter : NodeBase
         }
         else if (newIndex > newAsk + THRESHOLD && newIndex > lastIndex)
         {
-            Order pickoff{.price=newIndex - 20.0, .volume=1.0, .side=1, .isFOK=true};
+            Order pickoff{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
             if (handler->retrieve(tag::Stream::SendQuotes{}, pickoff))
             {
                 sentBid = pickoff;
@@ -179,12 +180,13 @@ struct Hitter : NodeBase
             {
                 pnl += sentAsk.price.asDouble() - sentBid.price.asDouble();
                 PHOENIX_LOG_INFO(handler, "Current PNL (in qty):", pnl);
+                PHOENIX_LOG_VERIFY(handler, (pnl < 200.0), "Too much loss");
                 fillMode = false;
             }
             else 
             {
                 Order capture{
-                    .price=reversedSide == 1 ? lastBid - 15.0 : lastAsk + 15.0,
+                    .price=lastIndex,
                     .volume=1.0,
                     .side=reversedSide,
                     .takeProfit=true
@@ -249,7 +251,7 @@ private:
     bool bidSniped;
 
     // trigger 
-    static constexpr Price THRESHOLD{30.0};
+    static constexpr Price THRESHOLD{20.0};
     Order sentBid;
     Order sentAsk;
     Price triggeredIndex;
