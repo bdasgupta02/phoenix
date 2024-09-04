@@ -36,6 +36,9 @@ struct Logger
 
     struct Verify
     {};
+
+    struct CSV
+    {};
 };
 
 struct Profiler

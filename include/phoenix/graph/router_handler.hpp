@@ -16,15 +16,15 @@ struct RouterHandler
     [[gnu::always_inline, gnu::hot]]
     inline void invoke(Tag tag, Args&&... args)
     {
-        static_cast<Router&>(*this).invokeImpl(tag, std::forward<Args&&>(args)...);
+        static_cast<Router&>(*this).invokeImpl(tag, std::forward<Args>(args)...);
     }
 
     template<typename Tag, typename... Args>
     [[gnu::always_inline, gnu::hot]]
     inline auto retrieve(Tag tag, Args&&... args)
     {
-        return std::forward<decltype(static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args&&>(args)...))>(
-            static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args&&>(args)...));
+        return std::forward<decltype(static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args>(args)...))>(
+            static_cast<Router&>(*this).retrieveImpl(tag, std::forward<Args>(args)...));
     }
 };
 

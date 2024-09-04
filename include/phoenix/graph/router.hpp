@@ -18,12 +18,12 @@ concept NonVoid = !Void<T>;
 
 template<typename Node, typename Tag, typename Router, typename... Args>
 concept HasVoidHandler = requires(Node node, Tag tag, Router& router, Args&&... args) {
-    { node.handle(tag, std::forward<Args&&>(args)...) } -> Void;
+    { node.handle(tag, std::forward<Args>(args)...) } -> Void;
 };
 
 template<typename Node, typename Tag, typename Router, typename... Args>
 concept HasReturnHandler = requires(Node node, Tag tag, Router& router, Args&&... args) {
-    { node.handle(tag, std::forward<Args&&>(args)...) } -> NonVoid;
+    { node.handle(tag, std::forward<Args>(args)...) } -> NonVoid;
 };
 } // namespace concepts
 
@@ -83,7 +83,7 @@ private:
             (concepts::HasVoidHandler<Nodes<NodeBase<Traits, Router, Config>>, Tag, Router, Args...> || ...),
             "At least one node should have this handler");
 
-        (tryInvoke<Nodes>(tag, std::forward<Args&&>(args)...), ...);
+        (tryInvoke<Nodes>(tag, std::forward<Args>(args)...), ...);
     }
 
     template<typename Tag, typename... Args>
@@ -94,8 +94,8 @@ private:
             (concepts::HasReturnHandler<Nodes<NodeBase<Traits, Router, Config>>, Tag, Router, Args...> + ...) == 1,
             "Exactly one node should have this handler");
 
-        return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...))>(
-            tryRetrieve<Nodes...>(tag, std::forward<Args&&>(args)...));
+        return std::forward<decltype(tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...))>(
+            tryRetrieve<Nodes...>(tag, std::forward<Args>(args)...));
     }
 
     template<template<typename> class Node, typename Tag, typename... Args>
@@ -105,7 +105,7 @@ private:
         if constexpr (concepts::HasVoidHandler<Node<NodeBase<Traits, Router, Config>>, Tag, Router, Args...>)
         {
             auto& node = getNode<Node>(*this);
-            node.handle(tag, std::forward<Args&&>(args)...);
+            node.handle(tag, std::forward<Args>(args)...);
         }
     }
 
@@ -116,14 +116,14 @@ private:
         if constexpr (concepts::HasReturnHandler<FirstNode<NodeBase<Traits, Router, Config>>, Tag, Router, Args...>)
         {
             auto& node = getNode<FirstNode>(*this);
-            return std::forward<decltype(node.handle(tag, std::forward<Args&&>(args)...))>(
-                node.handle(tag, std::forward<Args&&>(args)...));
+            return std::forward<decltype(node.handle(tag, std::forward<Args>(args)...))>(
+                node.handle(tag, std::forward<Args>(args)...));
         }
         else
         {
             static_assert(sizeof...(RestNodes) != 0, "No nodes have this handler");
-            return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...))>(
-                tryRetrieve<RestNodes...>(tag, std::forward<Args&&>(args)...));
+            return std::forward<decltype(tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...))>(
+                tryRetrieve<RestNodes...>(tag, std::forward<Args>(args)...));
         }
     }
 

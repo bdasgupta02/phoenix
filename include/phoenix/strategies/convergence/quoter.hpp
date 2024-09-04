@@ -138,13 +138,13 @@ struct Quoter : NodeBase
             if (side == 1)
             {
                 bidsOrdered[price.getValue()] = {price, remaining, orderId, isTakeProfit};
-                if (isTakeProfit)
+                if (!isTakeProfit)
                     lastOrderedBid = {.orderId = orderId, .isActive = true};
             }
             else
             {
                 asksOrdered[price.getValue()] = {price, remaining, orderId, isTakeProfit};
-                if (isTakeProfit)
+                if (!isTakeProfit)
                     lastOrderedAsk = {.orderId = orderId, .isActive = true};
             }
         }
@@ -153,7 +153,7 @@ struct Quoter : NodeBase
         if (status == 1 || status == 2)
         {
             logOrder("[FILL]", orderId, clOrderId, side, price, remaining);
-            if (remaining == 0.0)
+            if (remaining != 0.0)
             {
                 PHOENIX_LOG_INFO(handler, "Partial fill with remaining qty of", remaining.asDouble());
                 return;

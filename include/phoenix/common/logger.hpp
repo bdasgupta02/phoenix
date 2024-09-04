@@ -51,6 +51,8 @@ consteval std::string_view getFilename(std::string_view path)
     handler->invoke(tag::Logger::Log{}, LogLevel::FATAL, PHOENIX_LOG_DETAIL_CURRENT_FILE, __LINE__, __VA_ARGS__)
 #define PHOENIX_LOG_VERIFY(handler, condition, ...) \
     handler->invoke(tag::Logger::Verify{}, condition, PHOENIX_LOG_DETAIL_CURRENT_FILE, __LINE__, #condition, __VA_ARGS__)
+#define PHOENIX_LOG_CSV(handler, ...) \
+    handler->invoke(tag::Logger::CSV{}, __VA_ARGS__)
 // clang-format on
 
 template<typename NodeBase>
@@ -66,10 +68,11 @@ struct Logger : NodeBase
         logger->join();
     }
 
-    void handle(tag::Logger::Start)
+    void handle(tag::Logger::Start, bool isCSVLogger = false)
     {
         ++LOGGERS;
         assert(LOGGERS == 1 && "Only one logger is allowed to run at a time at one time");
+        isCSV = isCSVLogger;
         running.test_and_set();
 
         auto now = std::chrono::system_clock::now();
@@ -81,7 +84,11 @@ struct Logger : NodeBase
         ss << '/';
         ss << config->instrument << "-";
         ss << std::put_time(std::gmtime(&inTimeT), "%Y-%m-%dT%H:%M:%SZ");
-        ss << ".log";
+
+        if (isCSV)
+            ss << ".csv";
+        else
+            ss << ".log";
 
         logPath = ss.str();
         logFile.emplace(std::ofstream(logPath, std::ios::app));
@@ -107,11 +114,25 @@ struct Logger : NodeBase
             this->getHandler()->invoke(tag::Risk::Abort{});
     }
 
+    template<typename Head, typename... Tail>
+    inline void handle(tag::Logger::CSV, Head&& head, Tail&&... tail)
+    {
+        handlerCache.str("");
+        handlerCache.clear();
+        handlerCache << head;
+        ((handlerCache << "," << tail), ...);
+
+        Entry entry{.message = handlerCache.str()};
+
+        while (!entries.push(entry))
+            _mm_pause();
+    }
+
     template<typename... Args>
     inline void handle(tag::Logger::Verify, bool condition, std::string_view filename, int line, Args&&... args)
     {
         if (!condition)
-            handle(tag::Logger::Log{}, LogLevel::FATAL, filename, line, std::forward<Args&&>(args)...);
+            handle(tag::Logger::Log{}, LogLevel::FATAL, filename, line, std::forward<Args>(args)...);
     }
 
     void handle(tag::Logger::Stop)
@@ -198,19 +219,24 @@ private:
         auto now = std::chrono::system_clock::now();
         auto timeT = std::chrono::system_clock::to_time_t(now);
 
-        // clang-format off
-        loggerCache
-            << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%SZ")
-            << " [" 
-            << logLevelString(entry.level)
-            << "] "
-            << entry.filename
-            << ":" 
-            << entry.line
-            << " -"
-            << entry.message
-        ;
-        // clang-format on
+        if (isCSV)
+            loggerCache << entry.message;
+        else
+        {
+            // clang-format off
+            loggerCache
+                << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%SZ")
+                << " [" 
+                << logLevelString(entry.level)
+                << "] "
+                << entry.filename
+                << ":" 
+                << entry.line
+                << " -"
+                << entry.message
+            ;
+            // clang-format on
+        }
 
         return loggerCache.str();
     }
@@ -227,6 +253,8 @@ private:
 
     std::stringstream handlerCache;
     std::stringstream loggerCache;
+
+    bool isCSV = false;
 };
 
 template<typename NodeBase>

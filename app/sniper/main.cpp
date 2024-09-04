@@ -43,6 +43,6 @@ int main(int argc, char* argv[])
     setMaxThreadPriority();
 
     handler->invoke(tag::Logger::Start{});
-    PHOENIX_LOG_INFO(handler, "Starting sniper System");
+    PHOENIX_LOG_INFO(handler, "Starting ETH/STETH/USDC Triangular Arbitrage System");
     handler->invoke(tag::Stream::Start{});
 }
