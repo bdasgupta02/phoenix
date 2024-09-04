@@ -19,6 +19,7 @@ namespace phoenix::sniper {
 
 // Made specifically for BTC/USDC for now
 // and albeit simple, it's designed to bet towards short-term run-offs
+// next step: get another source of index-based theo -> binance for more latency/causality arb
 
 template<typename NodeBase>
 struct Hitter : NodeBase
@@ -61,10 +62,14 @@ struct Hitter : NodeBase
 
         if (fillMode)
         {
+            if (isInflightCapture)
+                return;
+
             // short-circuit take-profit exit
             if (bidSniped && newAsk < sentBid.price)
             {
                 Order capture{.price=newBid, .volume=1.0, .side=2, .isFOK=true};
+                isInflightCapture = true;
                 PHOENIX_LOG_INFO(handler, "Readjusting ask for capture (short-circuit)", newBid.asDouble());
                 return;
             }
@@ -72,6 +77,7 @@ struct Hitter : NodeBase
             if (!bidSniped && newBid > sentAsk.price)
             {
                 Order capture{.price=newAsk, .volume=1.0, .side=1, .isFOK=true};
+                isInflightCapture = true;
                 PHOENIX_LOG_INFO(handler, "Readjusting bid for capture (short-circuit)", newAsk.asDouble());
                 return;
             }
@@ -88,6 +94,7 @@ struct Hitter : NodeBase
                 Order capture{.price=newAsk, .volume=1.0, .side=2, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentAsk = capture;
+                isInflightCapture = true;
                 PHOENIX_LOG_INFO(handler, "Readjusting ask for capture", newAsk.asDouble());
             }
 
@@ -97,6 +104,7 @@ struct Hitter : NodeBase
                 Order capture{.price=newBid, .volume=1.0, .side=1, .takeProfit=true};
                 handler->retrieve(tag::Stream::SendQuotes{}, capture);
                 sentBid = capture;
+                isInflightCapture = true;
                 PHOENIX_LOG_INFO(handler, "Readjusting bid for capture", newBid.asDouble());
             }
 
@@ -160,20 +168,23 @@ struct Hitter : NodeBase
         case 1:
             logOrder("[PARTIAL FILL]", clOrderId, side, price, remaining);
             break;
-        case 0:
-            logOrder("[NEW ORDER]", clOrderId, side, price, remaining);
-            break;
         case 8:
             PHOENIX_LOG_FATAL(handler, "Order rejected with id", clOrderId, "and reason", report.getStringView("103"));
             break;
+        
+        case 0:
+            logOrder("[NEW ORDER]", clOrderId, side, price, remaining);
+            if (isCaptureOrder)
+                isInflightCapture = false;
+            break;
 
         case 4: 
-        {
             logOrder("[CANCELLED]", clOrderId, side, price, remaining);
-            if (!isCaptureOrder)
+            if (isCaptureOrder)
+                isInflightCapture = false;
+            else
                 isInflight = false;
-        }
-        break;
+            break;
 
         case 2:
         {
@@ -198,6 +209,7 @@ struct Hitter : NodeBase
                 PHOENIX_LOG_INFO(handler, "Current PNL (in qty):", pnl);
                 PHOENIX_LOG_VERIFY(handler, (pnl < 200.0), "Too much loss");
                 fillMode = false;
+                isInflightCapture = false;
             }
             else 
             {
@@ -211,6 +223,7 @@ struct Hitter : NodeBase
                 while (!handler->retrieve(tag::Stream::SendQuotes{}, capture))
                     _mm_pause();
 
+                isInflightCapture = true;
                 isInflight = false;
                 fillMode = true;
                 bidSniped = side == 1;
@@ -223,7 +236,7 @@ struct Hitter : NodeBase
         break;
 
         default:
-            PHOENIX_LOG_WARN(handler, "Other status type", status);
+            PHOENIX_LOG_FATAL(handler, "Other status type", status);
             break;
         };
         // clang-format on
@@ -264,6 +277,7 @@ private:
     // fill mode
     bool fillMode = false;
     bool isInflight = false;
+    bool isInflightCapture = false;
     bool bidSniped;
 
     // trigger 
