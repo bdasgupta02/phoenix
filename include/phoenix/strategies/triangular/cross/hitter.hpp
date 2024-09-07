@@ -81,7 +81,7 @@ struct Hitter : NodeBase
         if (btc.ask * cross.ask < eth.bid)
         {
             PHOENIX_LOG_INFO(
-                handler, "[OPP CASE 1] BTC", btc.ask.asDouble(), "* ETH/BTC", cross.ask.asDouble(), "> ETH", eth.bid.asDouble());
+                handler, "[OPP CASE 1] BTC", btc.ask.asDouble(), "* ETH/BTC", cross.ask.asDouble(), "< ETH", eth.bid.asDouble());
 
             auto const btcQty = btc.ask * contract;
             auto const ethQty = btcQty / eth.bid;
@@ -124,7 +124,7 @@ struct Hitter : NodeBase
         if (eth.ask < (btc.bid * cross.bid))
         {
             PHOENIX_LOG_INFO(
-                handler, "[OPP CASE 2] BTC", btc.bid.asDouble(), "* ETH/BTC", cross.bid.asDouble(), "< ETH", eth.ask.asDouble());
+                handler, "[OPP CASE 2] BTC", btc.bid.asDouble(), "* ETH/BTC", cross.bid.asDouble(), "> ETH", eth.ask.asDouble());
 
             auto const btcQty = btc.bid * contract;
             auto const ethQty = btcQty / eth.ask;
