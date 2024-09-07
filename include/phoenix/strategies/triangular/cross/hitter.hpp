@@ -241,7 +241,7 @@ private:
         double crossPrice = sentOrders[2].price.asDouble();
 
         double const contractSize = config->contractSize;
-        double const multiplier = eth.price.asDouble() * eth.volume.asDouble() * contractSize;
+        double const multiplier = eth.volume.asDouble() * contractSize;
 
         if (sentOrders[0].side == 1)
             pnl += (ethPrice - (btcPrice * crossPrice)) * multiplier;
