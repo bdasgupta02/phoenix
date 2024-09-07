@@ -10,6 +10,9 @@ target_link_libraries(phoenix_tri_btc PUBLIC phoenix)
 add_executable(phoenix_tri_eth triangular/eth.cpp)
 target_link_libraries(phoenix_tri_eth PUBLIC phoenix)
 
+add_executable(phoenix_tri_cross triangular/cross.cpp)
+target_link_libraries(phoenix_tri_cross PUBLIC phoenix)
+
 add_executable(phoenix_sniper sniper/main.cpp)
 target_link_libraries(phoenix_sniper PUBLIC phoenix)
 
