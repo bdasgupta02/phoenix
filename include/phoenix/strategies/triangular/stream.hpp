@@ -103,21 +103,19 @@ struct Stream : NodeBase
     {
         auto* config = this->getConfig();
         auto* handler = this->getHandler();
-        PHOENIX_LOG_INFO(handler, "Taking market orders");
 
         auto nextAllowed = lastSent + interval;
+        auto now = std::chrono::steady_clock::now();
+
         if (msgCountInterval <= 5u - sizeof...(orders))
             msgCountInterval += sizeof...(orders);
-        else if (std::chrono::steady_clock::now() >= nextAllowed)
+        else if (now >= nextAllowed)
         {
-            lastSent = std::chrono::steady_clock::now();
+            lastSent = now;
             msgCountInterval = sizeof...(orders);
         }
         else
-        { 
-            PHOENIX_LOG_WARN(handler, "Orders rejected with msgCountInterval", msgCountInterval);
             return false;
-        }
 
         auto const sendOrder = [this, handler](SingleOrder<Traits> const& order)
         {
@@ -193,7 +191,7 @@ private:
                 {
                     auto msg = fixBuilder.heartbeat(nextSeqNum);
                     forceSendMsg(msg);
-                    PHOENIX_LOG_DEBUG(handler, "Sent heartbeat");
+                    heartbeatLastSent = std::chrono::steady_clock::now();
                 }
 
                 auto readerOpt = recvMsg();
@@ -209,7 +207,7 @@ private:
                 {
                     auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getStringView("112"));
                     trySendMsg(msg);
-                    PHOENIX_LOG_DEBUG(handler, "Received TestRequest, sending Heartbeat");
+                    PHOENIX_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
                     continue;
                 }
 
@@ -262,7 +260,7 @@ private:
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
 
-        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 30);
+        auto msg = fixBuilder.login(nextSeqNum, config->username, config->secret, 180);
         forceSendMsg(msg);
         auto reader = forceReadMsg();
         PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful with message type", reader.getMessageType());
@@ -335,7 +333,7 @@ private:
     std::size_t nextSeqNum = 1u;
     io::ip::tcp::socket socket{ioContext};
 
-    static constexpr std::chrono::seconds HEARTBEAT_INTERVAL{25u};
+    static constexpr std::chrono::seconds HEARTBEAT_INTERVAL{160u};
     std::chrono::steady_clock::time_point heartbeatLastSent = std::chrono::steady_clock::now();
 
     bool isRunning = false;

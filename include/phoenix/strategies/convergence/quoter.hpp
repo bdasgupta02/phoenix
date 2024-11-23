@@ -34,7 +34,7 @@ struct Quoter : NodeBase
 
     using OrderRecords = boost::unordered::unordered_flat_map<PriceValue, OrderRecord>;
 
-    inline void handle(tag::Quoter::MDUpdate, FIXReader&& marketData)
+    inline void handle(tag::Quoter::MDUpdate, FIXReader& marketData)
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
@@ -114,7 +114,7 @@ struct Quoter : NodeBase
             lastAsk = bestAsk;
     }
 
-    inline void handle(tag::Quoter::ExecutionReport, FIXReader&& report)
+    inline void handle(tag::Quoter::ExecutionReport, FIXReader& report)
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();

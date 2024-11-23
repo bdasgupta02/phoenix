@@ -164,14 +164,14 @@ private:
                 // execution report
                 if (reader.isMessageType("8"))
                 {
-                    handler->invoke(tag::Quoter::ExecutionReport{}, std::move(reader));
+                    handler->invoke(tag::Quoter::ExecutionReport{}, reader);
                     continue;
                 }
 
                 // market data update
                 if (reader.isMessageType("W"))
                 {
-                    handler->invoke(tag::Quoter::MDUpdate{}, std::move(reader));
+                    handler->invoke(tag::Quoter::MDUpdate{}, reader);
                     continue;
                 }
             }
