@@ -16,11 +16,6 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - Attempts to pickoff stale orders in the book based on changing Deribit index price
 - Extremely latency sensitive, colo is a must
 
-### [In-Progress] Decision tree based pickoff opportunity signals
-- Currently collecting data through the data collection app to generate signals for short-term entries and exits based on decision-trees
-- Kinda curious about feature importances with gini impurity too, and I'm trying out different fields (VWAP and depth for e.g.)
-- DTs are sorta suitable for low latency execution if the depth is limited
-
 ## Exchange
 Deribit with TCP and FIX protocol. The exchange has a weird quirk where it reflects the extreme volatility of these overarching crypto spot markets, but is illiquid with very wide spreads and low daily volumes (BTC/USDC is the highest volume spot pair for instance, with just 6 mil USD a day). Definitely provides a nice unique challenge to have fun with. There's random spikes in volume for spots however, for instance USDC/USDT gets tons of activity in volatile BTC markets when big players try to offload their position or hedge derivatives. There's tons of room for experimentation here.
 
