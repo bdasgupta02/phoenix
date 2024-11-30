@@ -1,5 +1,6 @@
 add_library(phoenix 
   data/fix.cpp
+  tools/fix_circular_buffer.cpp
   utils.cpp
 )
 

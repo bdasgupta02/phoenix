@@ -43,7 +43,6 @@ struct Config
                 ("instrument", po::value<std::string>(&instrument)->required(), "Instrument name")
                 ("lot-size", po::value<double>(&lotSizeDouble)->required(), "Quote lot size")
                 ("tick-size", po::value<double>(&tickSizeDouble)->required(), "Minimum tick size")
-                ("kind", po::value<std::string>(&kind)->required(), "Instrument kind")
                 ("aggressive", po::value<bool>(&aggressive)->default_value(aggressive), "Aggressive mode")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
                 ("position-limit", po::value<double>(&positionBoundary)->default_value(positionBoundary), "One sided quote position limit")
@@ -90,7 +89,6 @@ struct Config
 
     // app
     std::string instrument;
-    std::string kind;
 
     // logging
     std::string logFolder;

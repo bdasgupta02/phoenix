@@ -80,4 +80,31 @@ struct Risk
     {};
 };
 
+struct TCPSocket
+{
+    struct Connect
+    {};
+
+    struct Stop 
+    {};
+
+    struct Send
+    {};
+
+    struct ForceSend
+    {};
+
+    struct Receive
+    {};
+
+    struct ForceReceive
+    {};
+
+    struct CheckThrottle
+    {};
+
+    struct SendUnthrottled
+    {};
+};
+
 } // namespace phoenix::tag

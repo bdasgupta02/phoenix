@@ -68,11 +68,12 @@ struct Logger : NodeBase
         logger->join();
     }
 
-    void handle(tag::Logger::Start, bool isCSVLogger = false)
+    void handle(tag::Logger::Start, bool isCSVLogger = false, bool isSingleThreadedLogger = false)
     {
         ++LOGGERS;
         assert(LOGGERS == 1 && "Only one logger is allowed to run at a time at one time");
         isCSV = isCSVLogger;
+        isSingleThreaded = isSingleThreadedLogger;
         running.test_and_set();
 
         auto now = std::chrono::system_clock::now();
@@ -96,7 +97,8 @@ struct Logger : NodeBase
 
         logPath = ss.str();
         logFile.emplace(std::ofstream(logPath, std::ios::app));
-        logger.emplace(&Logger::loggerThread, this);
+        if (!isSingleThreaded)
+            logger.emplace(&Logger::loggerThread, this);
     }
 
     template<typename... Args>
@@ -111,9 +113,7 @@ struct Logger : NodeBase
 
         Entry entry{.line = line, .level = level, .message = handlerCache.str(), .filename = std::string{filename}};
 
-        while (!entries.push(entry))
-            _mm_pause();
-
+        pushEntry(entry);
         if (level == LogLevel::FATAL)
             this->getHandler()->invoke(tag::Risk::Abort{});
     }
@@ -127,9 +127,7 @@ struct Logger : NodeBase
         ((handlerCache << "," << tail), ...);
 
         Entry entry{.message = handlerCache.str()};
-
-        while (!entries.push(entry))
-            _mm_pause();
+        pushEntry(entry);
     }
 
     template<typename... Args>
@@ -142,7 +140,8 @@ struct Logger : NodeBase
     void handle(tag::Logger::Stop)
     {
         shutdown();
-        logger->join();
+        if (!isSingleThreaded)
+            logger->join();
     }
 
 private:
@@ -153,6 +152,29 @@ private:
         std::string message;
         std::string filename;
     };
+
+    void pushEntry(Entry& entry)
+    {
+        if (isSingleThreaded) [[unlikely]]
+        {
+            std::string const formatted = formatEntry(entry);
+            writeEntry(formatted);
+            if (this->getConfig()->printLogs)
+                std::cout << formatted << std::endl;
+
+            logFile->flush();
+            if (entry.level == LogLevel::FATAL)
+            {
+                running.clear();
+                logFile->close();
+            }
+        }
+        else [[likely]]
+        {
+            while (!entries.push(entry))
+                _mm_pause();
+        }
+    }
 
     void shutdown()
     {
@@ -259,6 +281,7 @@ private:
     std::stringstream loggerCache;
 
     bool isCSV = false;
+    bool isSingleThreaded = false;
 };
 
 template<typename NodeBase>

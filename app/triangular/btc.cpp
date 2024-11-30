@@ -1,5 +1,6 @@
 #include "phoenix/common/logger.hpp"
 #include "phoenix/common/profiler.hpp"
+#include "phoenix/common/tcp_socket.hpp"
 #include "phoenix/data/decimal.hpp"
 #include "phoenix/graph/router.hpp"
 #include "phoenix/strategies/triangular/btc/hitter.hpp"
@@ -22,6 +23,7 @@ using Graph = Router<
     Config<Traits>,
     Traits,
     NodeList<
+        TCPSocket,
         Stream,
         Hitter,
         Risk,
@@ -40,9 +42,9 @@ int main(int argc, char* argv[])
     Graph graph{config};
     auto* handler = graph.getHandler();
 
-    setMaxThreadPriority();
-
     handler->invoke(tag::Logger::Start{});
     PHOENIX_LOG_INFO(handler, "Starting BTC/USDT/USDC Triangular Arbitrage System");
+
+    setMaxThreadPriority();
     handler->invoke(tag::Stream::Start{});
 }

@@ -14,9 +14,6 @@
 
 namespace phoenix::triangular {
 
-/*
-- try without FOK and with a timeout
-*/
 template<typename NodeBase>
 struct Hitter : NodeBase
 {
@@ -82,24 +79,28 @@ struct Hitter : NodeBase
 
         if (fillMode)
         {
-            for (auto i = 0u; i < sentOrders.size(); ++i)
-            {
-                auto& order = sentOrders[i];
-                if (order.isFilled || !order.isCancelled)
-                    continue;
-
-                if (order.side == 1)
-                    order.price = bestPrices[i].ask;
-                else
-                    order.price = bestPrices[i].bid;
-
-                if (handler->retrieve(tag::Stream::TakeMarketOrders{}, order))
-                {
-                    order.isCancelled = false;
-                    PHOENIX_LOG_INFO(handler, "Retrying order with idx", i, "and price", order.price.asDouble());
-                }
-            }
-
+        /*    auto now = std::chrono::steady_clock::now();*/
+        /*    auto validWindow = [&]*/
+        /*    {*/
+        /*        if (retried)*/
+        /*            return now - SEND_INTERVAL_RETRY;*/
+        /**/
+        /*        return now - SEND_INTERVAL_INITIAL;*/
+        /*    }();*/
+        /**/
+        /*    for (auto i = 0u; i < sentOrders.size(); ++i)*/
+        /*    {*/
+        /*        auto& order = sentOrders[i];*/
+        /*        if (order.isFilled || order.lastSent >= validWindow || order.orderId.empty() || order.isCancelled)*/
+        /*            continue;*/
+        /**/
+        /*        if (handler->retrieve(tag::Stream::CancelQuote{}, symbol, order.orderId))*/
+        /*        {*/
+        /*            order.isCancelled = true;*/
+        /*            retried = true;*/
+        /*        }*/
+        /*    }*/
+        /**/
             return;
         }
 
@@ -109,24 +110,23 @@ struct Hitter : NodeBase
 
         double const volume = config->volumeSize;
         double const contract = config->contractSize;
-        double const volContract = volume * contract;
 
         // Buy BTC, Sell ETH, Buy ETH/BTC
-        if (btc.ask * cross.ask < eth.bid)
+        if (btc.ask * cross.ask < eth.bid && cross.askQty > 200.0)
         {
             auto const btcQty = btc.ask * contract;
             auto const ethQty = btcQty / eth.bid;
             auto const ethQtyLots = static_cast<double>(std::round((ethQty.asDouble() / contract) * volume));
 
-            if (
-                btc.askQty < volume * contract ||
-                eth.bidQty < ethQtyLots * contract ||
-                cross.askQty < ethQtyLots * contract
-            )
-            {
-                PHOENIX_LOG_WARN(handler, "Not enough quantity");
-                return;
-            }
+            /*if (*/
+            /*    btc.askQty < volume ||*/
+            /*    eth.bidQty < ethQtyLots ||*/
+            /*    cross.askQty < ethQtyLots*/
+            /*) [[unlikely]]*/
+            /*{*/
+            /*    PHOENIX_LOG_WARN(handler, "Not enough quantity", btc.askQty.asDouble(), eth.bidQty.asDouble(), cross.askQty.asDouble());*/
+            /*    return;*/
+            /*}*/
             
             // clang-format off
             Order buyBtc{
@@ -161,27 +161,28 @@ struct Hitter : NodeBase
                 sentOrders[2] = buyCross;
                 fillMode = true;
                 filled = 0u;
+                PHOENIX_LOG_INFO(handler, "Taking case 1");
             }
 
             PHOENIX_LOG_INFO(handler, "[OPP CASE 1] BTC", btc.ask.asDouble(), "* ETH/BTC", cross.ask.asDouble(), "< ETH", eth.bid.asDouble());
         }
 
         // Sell BTC, Buy ETH, Sell ETH/BTC
-        if (eth.ask < btc.bid * cross.bid)
+        if (eth.ask < btc.bid * cross.bid && cross.bidQty > 200.0)
         {
             auto const btcQty = btc.bid * contract;
             auto const ethQty = btcQty / eth.ask;
             auto const ethQtyLots = static_cast<double>(std::round((ethQty.asDouble() / contract) * volume));
             
-            if (
-                btc.bidQty < volume * contract ||
-                eth.askQty < ethQtyLots * contract ||
-                cross.bidQty < ethQtyLots * contract
-            )
-            {
-                PHOENIX_LOG_WARN(handler, "Not enough quantity");
-                return;
-            }
+            /*if (*/
+            /*    btc.bidQty < volume ||*/
+            /*    eth.askQty < ethQtyLots ||*/
+            /*    cross.bidQty < ethQtyLots*/
+            /*) [[unlikely]]*/
+            /*{*/
+            /*    PHOENIX_LOG_WARN(handler, "Not enough quantity", btc.bidQty.asDouble(), eth.askQty.asDouble(), cross.bidQty.asDouble());*/
+            /*    return;*/
+            /*}*/
 
             // clang-format off
             Order sellBtc{
@@ -216,12 +217,14 @@ struct Hitter : NodeBase
                 sentOrders[2] = sellCross;
                 fillMode = true;
                 filled = 0u;
+                PHOENIX_LOG_INFO(handler, "Taking case 2");
             }
             
             PHOENIX_LOG_INFO(handler, "[OPP CASE 2] BTC", btc.bid.asDouble(), "* ETH/BTC", cross.bid.asDouble(), "> ETH", eth.ask.asDouble());
         }
     }
 
+    [[gnu::hot, gnu::always_inline]]
     inline void handle(tag::Hitter::ExecutionReport, FIXReader&& report)
     {
         auto const& symbol = report.getString("55");
@@ -236,7 +239,16 @@ struct Hitter : NodeBase
 
         switch (status)
         {
-        case 0: logOrder("[NEW ORDER]", orderId, side, price, remaining); break;
+        case 0: 
+        {
+            logOrder("[NEW ORDER]", orderId, side, price, remaining); 
+            auto const it = config->instrumentMap.find(symbol);
+            PHOENIX_LOG_VERIFY(handler, (it != config->instrumentMap.end()), "Symbol", symbol, "doesn't exist");
+            auto& sentOrder = sentOrders[it->second];
+            sentOrder.orderId = orderId;
+        }
+        break;
+
         case 1: logOrder("[PARTIAL FILL]", orderId, side, price, justExecuted); break;
 
         case 2:
@@ -266,6 +278,7 @@ struct Hitter : NodeBase
             {
                 fillMode = false;
                 filled = 0u;
+                retried = false;
                 PHOENIX_LOG_INFO(handler, "All orders filled");
                 updatePnl();
             }
@@ -278,7 +291,16 @@ struct Hitter : NodeBase
             auto const it = config->instrumentMap.find(symbol);
             PHOENIX_LOG_VERIFY(handler, (it != config->instrumentMap.end()), "Symbol", symbol, "doesn't exist");
             auto& sentOrder = sentOrders[it->second];
-            sentOrder.isCancelled = true;
+
+            if (sentOrder.side == 1)
+                sentOrder.price = bestPrices[it->second].ask;
+            else
+                sentOrder.price = bestPrices[it->second].bid;
+
+            while (!handler->retrieve(tag::Stream::TakeMarketOrders{}, sentOrder));
+
+            sentOrder.lastSent = std::chrono::steady_clock::now();
+            PHOENIX_LOG_INFO(handler, "Retrying", symbol);
         }
         break;
 
@@ -357,9 +379,12 @@ private:
     std::array<Order, 3u> sentOrders;
 
     bool fillMode = false;
+    bool retried = false;
     unsigned filled = 0u;
 
     double pnl = 0.0;
+    static constexpr std::chrono::milliseconds SEND_INTERVAL_INITIAL{250u};
+    static constexpr std::chrono::milliseconds SEND_INTERVAL_RETRY{10u};
 };
 
 } // namespace phoenix::triangular

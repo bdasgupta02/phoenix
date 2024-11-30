@@ -33,11 +33,11 @@ public:
 
     constexpr Decimal() = default;
 
-    constexpr Decimal(double value)
-        : value(std::round(value * multiplier))
+    constexpr Decimal(std::floating_point auto value)
+        : value(std::round(value * MULTIPLIER))
     {}
 
-    constexpr Decimal(std::uint64_t value)
+    constexpr Decimal(std::integral auto value)
         : value(value)
     {}
 
@@ -77,7 +77,7 @@ public:
         if (fractionalDigits < Precision)
             fractionalPart *= static_cast<std::uint64_t>(std::pow(10, Precision - fractionalDigits));
 
-        value = (integerPart * multiplier) + fractionalPart;
+        value = (integerPart * MULTIPLIER) + fractionalPart;
     }
 
     // must be null terminated
@@ -90,28 +90,27 @@ public:
         *this = Decimal{std::string_view{ptr, nullIdx}};
     }
 
-    Decimal(Decimal&&) = default;
-    Decimal& operator=(Decimal&&) = default;
+    constexpr Decimal(Decimal&&) = default;
+    constexpr Decimal& operator=(Decimal&&) = default;
 
-    Decimal(Decimal const&) = default;
-    Decimal& operator=(Decimal const&) = default;
+    constexpr Decimal(Decimal const&) = default;
+    constexpr Decimal& operator=(Decimal const&) = default;
 
-    std::uint64_t data() const { return value; }
+    constexpr std::uint64_t data() const { return value; }
 
     template<std::floating_point T>
     T as() const
     {
-        return static_cast<T>(value) / multiplier;
+        return static_cast<T>(value) / MULTIPLIER;
     }
 
-    double asDouble() const { return static_cast<double>(value) / multiplier; }
-
+    constexpr double asDouble() const { return static_cast<double>(value) / MULTIPLIER; }
     constexpr std::uint64_t getValue() const { return value; }
 
     std::string str() const
     {
-        std::uint64_t integerPart = value / multiplier;
-        std::uint64_t fractionalPart = value % multiplier;
+        std::uint64_t integerPart = value / MULTIPLIER;
+        std::uint64_t fractionalPart = value % MULTIPLIER;
 
         std::string fractionalPartStr = std::to_string(fractionalPart);
         if (fractionalPartStr.length() < Precision)
@@ -127,35 +126,45 @@ public:
         return std::to_string(integerPart) + '.' + fractionalPartStr;
     }
 
-    void minOrZero(Decimal const& other)
+    constexpr void minOrZero(Decimal const& other)
     {
         if (other && (other.value < value || !value))
             value = other.value;
     }
 
-    Decimal operator+(Decimal const& other) const { return {value + other.value}; }
-    Decimal operator-(Decimal const& other) const { return {value - other.value}; }
-    void operator+=(Decimal const& other) { value += other.value; }
-    void operator-=(Decimal const& other) { value -= other.value; }
+    constexpr Decimal operator+(Decimal other) const { return {value + other.value}; }
+    constexpr Decimal operator+(double other) const { return {asDouble() + other}; }
+    
+    constexpr Decimal operator-(Decimal other) const { return {value - other.value}; }
+    constexpr Decimal operator-(double other) const { return {asDouble() - other}; }
 
-    Decimal operator*(Decimal const& other) const { return {asDouble() * other.asDouble()}; }
-    Decimal operator/(Decimal const& other) const { return {asDouble() / other.asDouble()}; }
-    Decimal operator*(double other) const { return {asDouble() * other}; }
-    Decimal operator/(double other) const { return {asDouble() / other}; }
+    constexpr void operator+=(Decimal other) { value += other.value; }
+    constexpr void operator+=(double other) { value += other * MULTIPLIER; }
 
-    auto operator<=>(double other) { return as<double>() <=> other; }
-    auto operator<=>(std::integral auto other) { return value <=> other; }
-    auto operator<=>(Decimal const&) const = default;
+    constexpr void operator-=(Decimal other) { value -= other.value; }
+    constexpr void operator-=(double other) { value -= other * MULTIPLIER; }
 
-    explicit operator bool() const { return value != 0ULL; }
+    constexpr Decimal operator*(Decimal const& other) const { return {asDouble() * other.asDouble()}; }
+    friend constexpr Decimal operator*(Decimal dec, double raw) { return {dec.asDouble() * raw}; }
+    friend constexpr Decimal operator*(double raw, Decimal dec) { return {raw * dec.asDouble()}; }
 
-    void modify(auto&& func) { value = func(value); }
+    constexpr Decimal operator/(Decimal const& other) const { return {asDouble() / other.asDouble()}; }
+    friend constexpr Decimal operator/(Decimal dec, double raw) { return {dec.asDouble() / raw}; }
+    friend constexpr Decimal operator/(double raw, Decimal dec) { return {raw / dec.asDouble()}; }
+
+    constexpr auto operator<=>(std::floating_point auto other) { return asDouble() <=> other; }
+    constexpr auto operator<=>(std::integral auto other) { return value <=> other; }
+    constexpr auto operator<=>(Decimal const& other) const = default;
+
+    explicit constexpr operator bool() const { return value != 0ULL; }
+
+    constexpr void modify(auto&& func) { value = func(value); }
 
     bool error = false;
 
 private:
     std::uint64_t value = 0ULL;
-    static constexpr std::uint64_t multiplier = Precision == 0u ? 1 : detail::getMultiplier<Precision>();
+    static constexpr std::uint64_t MULTIPLIER = Precision == 0u ? 1 : detail::getMultiplier<Precision>();
 };
 
 } // namespace phoenix

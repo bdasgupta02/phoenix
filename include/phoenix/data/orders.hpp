@@ -21,6 +21,7 @@ struct SingleOrder
     bool isActive = true;
     bool isFOK = false;
     bool isCancelled = false;
+    bool isInFlight = true;
     
     std::string orderId;
     std::chrono::steady_clock::time_point lastSent = std::chrono::steady_clock::now();
