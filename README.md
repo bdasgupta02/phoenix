@@ -10,14 +10,14 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 ### Triangular arbitrage across multiple books for equivalent coins
 - Fast market orders to instantly capture opportunities across 3 books
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
-- Very latency sensitive, and slippage is a big issue even with colo (perhaps the matching engine batches orders or is non-deterministic)
-
-### "Sniper" simple pickoff hitter
-- Attempts to pickoff stale orders in the book based on changing Deribit index price
-- Extremely latency sensitive, colo is a must
+- Very latency sensitive, and slippage can be an issue without colocation
+- Uses limit orders, as market orders have an extreme and unreasonable degree of slippage (I suspect Deribit's matching engine has a separate queue for market orders)
 
 ## Exchange
 Deribit with TCP and FIX protocol. The exchange has a weird quirk where it reflects the extreme volatility of these overarching crypto spot markets, but is illiquid with very wide spreads and low daily volumes (BTC/USDC is the highest volume spot pair for instance, with just 6 mil USD a day). Definitely provides a nice unique challenge to have fun with. There's random spikes in volume for spots however, for instance USDC/USDT gets tons of activity in volatile BTC markets when big players try to offload their position or hedge derivatives. There's tons of room for experimentation here.
+
+## Colocation 
+This project supports colocation with Deribit's matching engine in LD4, especially necessary for the triangular arbitrage strategy
 
 ## Tech stack
 - Arch Linux

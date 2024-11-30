@@ -27,8 +27,6 @@ struct Hitter : NodeBase
         : NodeBase(config, handler)
         , config{&config}
         , handler{&handler}
-        , threshold{config.triggerThreshold}
-        , qtyThreshold{config.qtyThreshold}
     {}
 
     [[gnu::hot, gnu::always_inline]]
@@ -390,8 +388,6 @@ private:
 
     RouterHandler<Router>* const handler;
     Config const* const config;
-    Price threshold;
-    double qtyThreshold;
 
     std::array<InstrumentTopLevel, 3u> bestPrices;
     std::array<Order, 3u> sentOrders;
