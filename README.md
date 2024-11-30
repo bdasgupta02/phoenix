@@ -8,10 +8,10 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - e.g. USDC/USDT, STETH/ETH
 
 ### Triangular arbitrage across multiple books for equivalent coins
-- Fast market orders to instantly capture opportunities across 3 books
+- Instantly capturing edge between 3 books
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
 - Very latency sensitive, and slippage can be an issue without colocation
-- Uses limit orders, as market orders have an extreme and unreasonable degree of slippage (I suspect Deribit's matching engine has a separate queue for market orders)
+- Uses aggressor limit orders, as market orders have an extreme and unreasonable degree of slippage (I suspect Deribit's matching engine has a separate queue for market orders)
 
 ## Exchange
 Deribit with TCP and FIX protocol. The exchange has a weird quirk where it reflects the extreme volatility of these overarching crypto spot markets, but is illiquid with very wide spreads and low daily volumes (BTC/USDC is the highest volume spot pair for instance, with just 6 mil USD a day). Definitely provides a nice unique challenge to have fun with. There's random spikes in volume for spots however, for instance USDC/USDT gets tons of activity in volatile BTC markets when big players try to offload their position or hedge derivatives. There's tons of room for experimentation here.
