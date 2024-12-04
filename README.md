@@ -7,7 +7,7 @@ Arbitrage strategies and experiments for cryptocurrency. Mostly meant for fun.
 - Low-risk and deterministic, but very low upside
 - e.g. USDC/USDT, STETH/ETH
 
-### Triangular arbitrage across multiple books for equivalent coins
+### Triangular arbitrage
 - Instantly capturing edge between 3 books
 - e.g. BTC/USDC vs BTC/USDT vs. USDC/USDT
 - Very latency sensitive, and slippage can be an issue without colocation
