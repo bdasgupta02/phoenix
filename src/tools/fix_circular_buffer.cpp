@@ -1,7 +1,7 @@
 #include "phoenix/tools/fix_circular_buffer.hpp"
 
 #include <charconv>
-#include <iostream>
+#include <cstring>
 
 namespace phoenix {
 
@@ -65,7 +65,7 @@ void FIXCircularBuffer::advanceMoveOverflow(std::size_t newStart, std::size_t ne
     }
     else 
     {
-        std::memmove(buffer.data(), buffer.data() + newStart, newEnd - newStart);
+        std::memcpy(buffer.data(), buffer.data() + newStart, newEnd - newStart);
         start = 0u;
         end = newEnd - newStart;
     }
