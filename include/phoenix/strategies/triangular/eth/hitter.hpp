@@ -83,7 +83,7 @@ struct Hitter : NodeBase
         // Buy ETH, Sell STETH, Buy STETH/ETH
         if (eth.ask * cross.ask < steth.bid)
         {
-            Volume const volume = std::min(eth.askQty, std::min(cross.askQty, std::min(steth.bidQty, maxVolume)));
+            Volume const volume = std::min({eth.askQty, cross.askQty, steth.bidQty, maxVolume});
             
             // clang-format off
             Order buyEth{
@@ -123,7 +123,7 @@ struct Hitter : NodeBase
         // Sell ETH, Buy STETH, Sell STETH/ETH
         if (steth.ask < eth.bid * cross.bid)
         {
-            Volume const volume = std::min(steth.askQty, std::min(eth.bidQty, std::min(cross.bidQty, maxVolume)));
+            Volume const volume = std::min({steth.askQty, eth.bidQty, cross.bidQty, maxVolume});
 
             // clang-format off
             Order sellEth{
