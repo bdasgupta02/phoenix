@@ -20,9 +20,7 @@ Deribit with TCP and FIX protocol. The exchange has a weird quirk where it refle
 This project supports colocation with Deribit's matching engine in LD4, especially necessary for the triangular arbitrage strategy
 
 ## Tech stack
-- Arch Linux
-- x86_64
-- GCC 14.1.1
+- Linux x86_64
 - C++ 20
 
 ## Static dependency injection
