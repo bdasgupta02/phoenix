@@ -115,14 +115,14 @@ private:
         while (i < 3u)
         {
             auto msg = handler->retrieve(tag::TCPSocket::ForceReceive{});
-            FIXReader reader{msg};
-            if (reader.isMessageType("W"))
+            fixReader.init(msg);
+            if (fixReader.isMessageType("W"))
             {
-                handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), false);
+                handler->invoke(tag::Hitter::MDUpdate{}, fixReader, false);
                 ++i;
             }
             else
-                PHOENIX_LOG_FATAL(handler, "Unknown message type", reader.getMessageType());
+                PHOENIX_LOG_FATAL(handler, "Unknown message type", fixReader.getMessageType());
         }
 
         // subscribing to incremental
@@ -130,9 +130,9 @@ private:
 
         while (isRunning)
         {
-            [[maybe_unused]] auto profiler = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");
             try
             {
+                /*[[maybe_unused]] auto profiler = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");*/
                 if (std::chrono::steady_clock::now() - heartbeatLastSent > HEARTBEAT_INTERVAL) [[unlikely]]
                 {
                     auto msg = fixBuilder.heartbeat(nextSeqNum);
@@ -145,37 +145,37 @@ private:
                 if (!msgOpt)
                     continue;
 
-                FIXReader reader{*msgOpt};
-                auto const& msgType = reader.getMessageType();
+                fixReader.init(*msgOpt);
+                auto msgType = fixReader.getMessageType();
 
                 // test request
                 if (msgType == "1")
                 {
-                    auto msg = fixBuilder.heartbeat(nextSeqNum, reader.getStringView("112"));
+                    auto msg = fixBuilder.heartbeat(nextSeqNum, fixReader.getStringView(112));
                     handler->invoke(tag::TCPSocket::ForceSend{}, msg);
                     ++nextSeqNum;
                     PHOENIX_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
                     continue;
                 }
 
-                auto const& recvInstrument = reader.getString("55");
-                if (!instrumentMap.contains(recvInstrument))
-                    continue;
+                /*auto recvInstrument = fixReader.getStringView(55);*/
+                /*if (!instrumentMap.contains(recvInstrument))*/
+                /*    continue;*/
 
                 if (msgType == "X" or msgType == "W") [[likely]]
                 {
-                    handler->invoke(tag::Hitter::MDUpdate{}, std::move(reader), true);
+                    handler->invoke(tag::Hitter::MDUpdate{}, fixReader, true);
                     continue;
                 }
                 else if (msgType == "8")
                 {
-                    handler->invoke(tag::Hitter::ExecutionReport{}, std::move(reader));
+                    handler->invoke(tag::Hitter::ExecutionReport{}, fixReader);
                     continue;
                 }
+                else if (msgType == "0")
+                    continue;
                 else
-                {
-                    PHOENIX_LOG_INFO(handler, "Unknown message type");
-                }
+                    PHOENIX_LOG_INFO(handler, "Unknown message type", msgType);
             }
             catch (std::exception const& e)
             {
@@ -216,14 +216,15 @@ private:
         ++nextSeqNum;
 
         auto recvMsg = handler->retrieve(tag::TCPSocket::ForceReceive{});
-        FIXReader reader{recvMsg};
-        PHOENIX_LOG_VERIFY(handler, reader.isMessageType("A"), "Login unsuccessful with message type", reader.getMessageType());
+        fixReader.init(recvMsg);
+        PHOENIX_LOG_VERIFY(handler, fixReader.isMessageType("A"), "Login unsuccessful with message type", fixReader.getMessageType());
         PHOENIX_LOG_INFO(handler, "Login successful");
     }
 
     bool isRunning = false;
     std::size_t nextSeqNum = 1u;
     FIXMessageBuilder fixBuilder;
+    FIXReaderFast fixReader;
     static constexpr std::chrono::seconds HEARTBEAT_INTERVAL{80u};
     std::chrono::steady_clock::time_point heartbeatLastSent = std::chrono::steady_clock::now();
 };

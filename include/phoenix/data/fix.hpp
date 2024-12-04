@@ -7,11 +7,13 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <concepts>
 #include <cstdint>
 #include <cstdio>
+#include <iostream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -445,6 +447,109 @@ private:
 
     FIXBuilder builder;
     std::string client;
+};
+
+// non-owning
+struct FIXReaderFast
+{
+    FIXReaderFast() = default;
+
+    void init(std::string_view data)
+    {
+        sizes.fill(0u);
+
+        std::string_view::size_type pos = 0;
+        while (pos < data.size())
+        {
+            auto tagEnd = data.find('=', pos);
+            if (tagEnd == std::string_view::npos)
+                break;
+
+            auto valueEnd = data.find('\x01', tagEnd + 1);
+            if (valueEnd == std::string_view::npos)
+                break;
+
+            std::size_t tag;
+            std::from_chars(data.begin() + pos, data.begin() + tagEnd, tag);
+            if (tag > POINTER_CAPACITY + 1u)
+            {
+                pos = valueEnd + 1u;
+                continue;
+            }
+
+            std::string_view value{data.begin() + tagEnd + 1u, data.begin() + valueEnd};
+
+            pointers[tag][sizes[tag]++] = value;
+            pos = valueEnd + 1u;
+        }
+        
+        msgType = getStringView(35);
+    }
+
+    FIXReaderFast(FIXReaderFast&&) = default;
+    FIXReaderFast& operator=(FIXReaderFast&&) = default;
+
+    FIXReaderFast(FIXReaderFast&) = delete;
+    FIXReaderFast& operator=(FIXReaderFast&) = delete;
+
+    std::string_view getStringView(std::size_t tag, std::size_t index = 0)
+    {
+        /*assert(tag < POINTER_CAPACITY && index < POINTER_FIELD_CAPACITY);*/
+        if (sizes[tag] < index)
+            return UNKNOWN;
+        return pointers[tag][index];
+    }
+
+    template<concepts::Numerical T>
+    T getNumber(std::size_t tag, std::size_t index = 0u)
+    {
+        auto val = getStringView(tag, index);
+        if (val == UNKNOWN)
+            return 0u;
+
+        T result;
+        std::from_chars(val.begin(), val.begin() + val.size(), result);
+        return result;
+    }
+    
+    template<typename DecimalType>
+    DecimalType getDecimal(std::size_t tag, std::size_t index = 0u)
+    {
+        auto val = getStringView(tag, index);
+        if (val == UNKNOWN)
+            return {};
+
+        return {val};
+    }
+
+    bool getBool(std::size_t tag, std::size_t index = 0u)
+    {
+        auto val = getStringView(tag, index);
+        if (val == UNKNOWN)
+            return false;
+
+        return val == "Y" || val == "y";
+    }
+    
+    bool isMessageType(std::string_view msgType) { return this->msgType == msgType; }
+    std::string_view getMessageType() { return msgType; }
+    std::size_t getFieldSize(std::size_t tag) { return sizes[tag]; }
+
+    bool contains(std::size_t tag, std::size_t index = 0u)
+    {
+        return (sizes[tag] >= index + 1u);
+    }
+
+    static constexpr char UNKNOWN[] = "";
+
+private:
+    // we don't yet care about deribit specific fields (e.g. 100090)
+    static constexpr std::size_t POINTER_CAPACITY = 1400u;
+    static constexpr std::size_t POINTER_FIELD_CAPACITY = 8u;
+
+    std::array<std::array<std::string_view, 8u>, POINTER_CAPACITY> pointers;
+    std::array<std::size_t, POINTER_CAPACITY> sizes;
+    std::string_view msgType;
 };
 
 struct FIXReader

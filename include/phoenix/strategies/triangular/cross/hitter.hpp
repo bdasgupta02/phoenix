@@ -33,10 +33,10 @@ struct Hitter : NodeBase
         , qtyThreshold{config.qtyThreshold}
     {}
 
-    inline void handle(tag::Hitter::MDUpdate, FIXReader&& marketData, bool const update = true)
+    inline void handle(tag::Hitter::MDUpdate, FIXReaderFast& marketData, bool const update = true)
     {
         auto const& instrumentMap = config->instrumentMap;
-        auto const& symbol = marketData.getString("55");
+        auto symbol = marketData.getStringView(55);
         auto const it = instrumentMap.find(symbol);
         PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
 
@@ -45,19 +45,19 @@ struct Hitter : NodeBase
         Price newAsk;
         Volume newBidQty;
         Volume newAskQty;
-        std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
+        std::size_t const numUpdates = marketData.getNumber<std::size_t>(268);
         for (std::size_t i = 0u; i < numUpdates; ++i)
         {
-            unsigned const typeField = marketData.getNumber<unsigned>("269", i);
+            unsigned const typeField = marketData.getNumber<unsigned>(269, i);
             if (typeField == 0u)
             {
-                newBid.minOrZero(marketData.getDecimal<Price>("270", i));
-                newBidQty.minOrZero(marketData.getDecimal<Volume>("271", i));
+                newBid.minOrZero(marketData.getDecimal<Price>(270, i));
+                newBidQty.minOrZero(marketData.getDecimal<Volume>(271, i));
             }
             if (typeField == 1u)
             {
-                newAsk.minOrZero(marketData.getDecimal<Price>("270", i));
-                newAskQty.minOrZero(marketData.getDecimal<Volume>("271", i));
+                newAsk.minOrZero(marketData.getDecimal<Price>(270, i));
+                newAskQty.minOrZero(marketData.getDecimal<Volume>(271, i));
             }
         }
 
@@ -225,16 +225,15 @@ struct Hitter : NodeBase
     }
 
     [[gnu::hot, gnu::always_inline]]
-    inline void handle(tag::Hitter::ExecutionReport, FIXReader&& report)
+    inline void handle(tag::Hitter::ExecutionReport, FIXReaderFast& report)
     {
-        auto const& symbol = report.getString("55");
-        auto status = report.getNumber<unsigned>("39");
-        auto const& orderId = report.getString("11");
-        auto const& clOrderId = report.getString("41");
-        auto remaining = report.getDecimal<Volume>("151");
-        auto justExecuted = report.getDecimal<Volume>("14");
-        auto side = report.getNumber<unsigned>("54");
-        auto price = report.getDecimal<Price>("44");
+        auto symbol = report.getStringView(55);
+        auto status = report.getNumber<unsigned>(39);
+        auto orderId = report.getStringView(11);
+        auto remaining = report.getDecimal<Volume>(151);
+        auto justExecuted = report.getDecimal<Volume>(14);
+        auto side = report.getNumber<unsigned>(54);
+        auto price = report.getDecimal<Price>(44);
         PHOENIX_LOG_VERIFY(handler, (!price.error && !remaining.error), "Decimal parse error");
 
         switch (status)
@@ -253,13 +252,13 @@ struct Hitter : NodeBase
 
         case 2:
         {
-            unsigned const numFills = report.getNumber<unsigned>("1362");
+            unsigned const numFills = report.getNumber<unsigned>(1362);
             double avgFillPrice = 0.0;
             double totalQty = 0.0;
             for (unsigned i = 0u; i < numFills; ++i)
             {
-                double const fillQty = report.getNumber<double>("1365", i);
-                double const fillPrice = report.getNumber<double>("1364", i);
+                double const fillQty = report.getNumber<double>(1365, i);
+                double const fillPrice = report.getNumber<double>(1364, i);
                 totalQty += fillQty;
                 avgFillPrice += (fillQty * fillPrice);
             }
@@ -306,7 +305,7 @@ struct Hitter : NodeBase
 
         case 8:
         {
-            auto reason = report.getStringView("103");
+            auto reason = report.getStringView(103);
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
         }
         break;

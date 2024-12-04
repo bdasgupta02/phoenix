@@ -30,35 +30,35 @@ struct Hitter : NodeBase
     {}
 
     [[gnu::hot, gnu::always_inline]]
-    inline void handle(tag::Hitter::MDUpdate, FIXReader&& marketData, bool const update = true)
+    inline void handle(tag::Hitter::MDUpdate, FIXReaderFast& marketData, bool const update = true)
     {
         auto const& instrumentMap = config->instrumentMap;
-        auto const& symbol = marketData.getString("55");
+        auto symbol = marketData.getStringView(55);
         auto const it = instrumentMap.find(symbol);
-        PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);
+        /*PHOENIX_LOG_VERIFY(handler, (it != instrumentMap.end()), "Unknown instrument", symbol);*/
 
         ///////// UPDATE PRICES
         Price newBid;
         Price newAsk;
         Volume newBidQty;
         Volume newAskQty;
-        std::size_t const numUpdates = marketData.getNumber<std::size_t>("268");
+        std::size_t const numUpdates = marketData.getNumber<std::size_t>(268);
         for (std::size_t i = 0u; i < numUpdates; ++i)
         {
-            unsigned const typeField = marketData.getNumber<unsigned>("269", i);
+            unsigned const typeField = marketData.getNumber<unsigned>(269, i);
             if (typeField == 0u)
             {
-                newBid.minOrZero(marketData.getDecimal<Price>("270", i));
-                newBidQty.minOrZero(marketData.getDecimal<Volume>("271", i));
+                newBid.minOrZero(marketData.getDecimal<Price>(270, i));
+                newBidQty.minOrZero(marketData.getDecimal<Volume>(271, i));
             }
             if (typeField == 1u)
             {
-                newAsk.minOrZero(marketData.getDecimal<Price>("270", i));
-                newAskQty.minOrZero(marketData.getDecimal<Volume>("271", i));
+                newAsk.minOrZero(marketData.getDecimal<Price>(270, i));
+                newAskQty.minOrZero(marketData.getDecimal<Volume>(271, i));
             }
         }
 
-        if (!newBid || !newAsk)
+        if (!newBid || !newAsk) [[unlikely]]
         {
             PHOENIX_LOG_WARN(handler, "Invalid prices");
             return;
@@ -71,72 +71,19 @@ struct Hitter : NodeBase
         instrumentPrices.askQty = newAskQty;
 
         ///////// TRIGGER
-        if (!update)
+        if (it->second != 1u || fillMode || !update)
             return;
-
-        if (fillMode)
-        {
-            /*auto now = std::chrono::steady_clock::now();*/
-            /*auto validWindow = [&]*/
-            /*{*/
-            /*    if (fillRetried)*/
-            /*        return now - SEND_INTERVAL_RETRY;*/
-            /**/
-            /*    return now - SEND_INTERVAL_INITIAL;*/
-            /*}();*/
-            /**/
-            /*for (auto i = 0u; i < sentOrders.size(); ++i)*/
-            /*{*/
-            /*    auto& order = sentOrders[i];*/
-            /*    if (order.isFilled || order.lastSent >= validWindow || order.orderId.empty() || order.isInFlight)*/
-            /*        continue;*/
-            /**/
-            /*    if (handler->retrieve(tag::Stream::CancelQuote{}, symbol, order.orderId))*/
-            /*    {*/
-            /*        order.isInFlight = true;*/
-            /*        fillRetried = true;*/
-            /*    }*/
-            /*}*/
-
-            return;
-        }
-
-        if (it->second != 1u)
-            return;
-
-        /**/
-        /*if (it->second == 1u)*/
-        /*    stethCounter = 0u;*/
-        /*else */
-        /*    stethCounter++;*/
-        /**/
-        /*if (stethCounter > 5u)*/
-        /*    return;*/
 
         auto& eth = bestPrices[0];
         auto& steth = bestPrices[1];
         auto& cross = bestPrices[2];
 
-        double volume = config->volumeSize;
-        /*double const contract = config->contractSize;*/
+        Volume const maxVolume{config->volumeSize};
 
         // Buy ETH, Sell STETH, Buy STETH/ETH
         if (eth.ask * cross.ask < steth.bid)
         {
-            /*auto const ethQty = eth.ask * contract;*/
-            /*auto const stethQty = ethQty / steth.bid;*/
-            /*auto const stethQtyLots = static_cast<double>(std::round((stethQty.asDouble() / contract) * volume));*/
-            
-            /*if (*/
-            /*    eth.askQty < volume ||*/
-            /*    steth.bidQty < volume ||*/
-            /*    cross.askQty < volume*/
-            /*) [[unlikely]]*/
-            /*{*/
-            /*    volume = std::min(std::min(eth.askQty.asDouble(), steth.bidQty.asDouble()), cross.askQty.asDouble());*/
-            /*}*/
-
-            volume = steth.bidQty < volume ? steth.bidQty.asDouble() : volume;
+            Volume const volume = std::min(eth.askQty, std::min(cross.askQty, std::min(steth.bidQty, maxVolume)));
             
             // clang-format off
             Order buyEth{
@@ -168,7 +115,6 @@ struct Hitter : NodeBase
                 sentOrders[2] = buyCross;
                 fillMode = true;
                 filled = 0u;
-                PHOENIX_LOG_INFO(handler, "Taking case 1");
             }
 
             PHOENIX_LOG_INFO(handler, "[OPP CASE 1] ETH", eth.ask.asDouble(), "* STETH/ETH", cross.ask.asDouble(), "< STETH", steth.bid.asDouble());
@@ -177,20 +123,7 @@ struct Hitter : NodeBase
         // Sell ETH, Buy STETH, Sell STETH/ETH
         if (steth.ask < eth.bid * cross.bid)
         {
-            /*auto const ethQty = eth.bid * contract;*/
-            /*auto const stethQty = ethQty / steth.ask;*/
-            /*auto const stethQtyLots = static_cast<double>(std::round((stethQty.asDouble() / contract) * volume));*/
-
-            /*if (*/
-            /*    eth.bidQty < volume ||*/
-            /*    steth.askQty < volume ||*/
-            /*    cross.bidQty < volume*/
-            /*) [[unlikely]]*/
-            /*{*/
-            /*    volume = std::min(std::min(eth.bidQty.asDouble(), steth.askQty.asDouble()), cross.bidQty.asDouble());*/
-            /*}*/
-            
-            volume = steth.askQty < volume ? steth.askQty.asDouble() : volume;
+            Volume const volume = std::min(steth.askQty, std::min(eth.bidQty, std::min(cross.bidQty, maxVolume)));
 
             // clang-format off
             Order sellEth{
@@ -222,7 +155,6 @@ struct Hitter : NodeBase
                 sentOrders[2] = sellCross;
                 fillMode = true;
                 filled = 0u;
-                PHOENIX_LOG_INFO(handler, "Taking case 2");
             }
             
             PHOENIX_LOG_INFO(handler, "[OPP CASE 2] ETH", eth.bid.asDouble(), "* STETH/ETH", cross.bid.asDouble(), "> STETH", steth.ask.asDouble());
@@ -230,15 +162,15 @@ struct Hitter : NodeBase
     }
 
     [[gnu::hot, gnu::always_inline]]
-    inline void handle(tag::Hitter::ExecutionReport, FIXReader&& report)
+    inline void handle(tag::Hitter::ExecutionReport, FIXReaderFast& report)
     {
-        auto const& symbol = report.getString("55");
-        auto status = report.getNumber<unsigned>("39");
-        auto const& orderId = report.getString("11");
-        auto remaining = report.getDecimal<Volume>("151");
-        auto justExecuted = report.getDecimal<Volume>("14");
-        auto side = report.getNumber<unsigned>("54");
-        auto price = report.getDecimal<Price>("44");
+        auto symbol = report.getStringView(55);
+        auto status = report.getNumber<unsigned>(39);
+        auto orderId = report.getStringView(11);
+        auto remaining = report.getDecimal<Volume>(151);
+        auto justExecuted = report.getDecimal<Volume>(14);
+        auto side = report.getNumber<unsigned>(54);
+        auto price = report.getDecimal<Price>(44);
 
         switch (status)
         {
@@ -257,13 +189,13 @@ struct Hitter : NodeBase
 
         case 2:
         {
-            unsigned const numFills = report.getNumber<unsigned>("1362");
+            unsigned const numFills = report.getNumber<unsigned>(1362);
             double avgFillPrice = 0.0;
             double totalQty = 0.0;
             for (unsigned i = 0u; i < numFills; ++i)
             {
-                double const fillQty = report.getNumber<double>("1365", i);
-                double const fillPrice = report.getNumber<double>("1364", i);
+                double const fillQty = report.getNumber<double>(1365, i);
+                double const fillPrice = report.getNumber<double>(1364, i);
                 totalQty += fillQty;
                 avgFillPrice += (fillQty * fillPrice);
             }
@@ -322,7 +254,7 @@ struct Hitter : NodeBase
 
         case 8:
         {
-            auto reason = report.getStringView("103");
+            auto reason = report.getStringView(103);
             logOrder("[REJECTED]", orderId, side, price, remaining, reason);
         }
         break;

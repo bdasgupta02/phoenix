@@ -18,8 +18,8 @@ struct FIXCircularBuffer
 private:
     void advanceMoveOverflow(std::size_t newStart, std::size_t newEnd);
 
-    static constexpr std::size_t BUFFER_CAPACITY{32768u};
-    static constexpr std::size_t BUFFER_WRAP_BOUNDARY{8192u}; // assuming we never get more than this per socket read
+    static constexpr std::size_t BUFFER_CAPACITY{16384u};
+    static constexpr std::size_t BUFFER_WRAP_BOUNDARY{4096u}; // assuming we never get more than this per socket read
 
     std::array<char, BUFFER_CAPACITY> buffer;
     std::size_t start = 0u;

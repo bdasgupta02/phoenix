@@ -62,12 +62,12 @@ struct TCPSocket : NodeBase
             }
             
             socket.set_option(io::ip::tcp::no_delay(true));
-            socket.set_option(boost::asio::socket_base::receive_buffer_size(256 * 1024));
-            socket.set_option(boost::asio::socket_base::send_buffer_size(256 * 1024));
+            socket.set_option(boost::asio::socket_base::receive_buffer_size(8 * 1024));
+            socket.set_option(boost::asio::socket_base::send_buffer_size(8 * 1024));
 
             setsockopt(socket.native_handle(), SOL_SOCKET, SO_PRIORITY, &SOCKET_PRIORITY, sizeof(SOCKET_PRIORITY));
             setsockopt(socket.native_handle(), IPPROTO_TCP, TCP_QUICKACK, &SOCKET_ENABLE_FLAG, sizeof(SOCKET_ENABLE_FLAG));
-            setsockopt(socket.native_handle(), SOL_SOCKET, SO_BUSY_POLL, &SOCKET_ENABLE_FLAG, sizeof(SOCKET_ENABLE_FLAG));
+            setsockopt(socket.native_handle(), SOL_SOCKET, SO_BUSY_POLL, &SOCKET_POLL_MICROSECONDS, sizeof(SOCKET_POLL_MICROSECONDS));
  
             PHOENIX_LOG_INFO(this->getHandler(), "Connected successfully");
         }
@@ -124,13 +124,9 @@ struct TCPSocket : NodeBase
         if (leftoverMsg)
             return leftoverMsg;
 
-        if (!socket.available())
-            return {};
-
-        auto* handler = this->getHandler();
         boost::system::error_code error;
-        auto const bytesRead = socket.read_some(circularBuffer.getAsioBuffer(), error);
-        PHOENIX_LOG_VERIFY(handler, (!error), "Error while receiving message", error.message());
+        auto bytesRead = socket.read_some(circularBuffer.getAsioBuffer(), error);
+        PHOENIX_LOG_VERIFY(this->getHandler(), (!error), "Error while receiving message", error.message());
         return circularBuffer.getMsg(bytesRead);
     };
 
@@ -165,6 +161,7 @@ private:
     // setup
     static constexpr int SOCKET_PRIORITY{6};
     static constexpr int SOCKET_ENABLE_FLAG{1};
+    static constexpr int SOCKET_POLL_MICROSECONDS{10000};
 
     // socket
     io::io_context ioContext;

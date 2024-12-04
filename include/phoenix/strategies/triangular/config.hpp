@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -100,7 +101,7 @@ struct Config
     double qtyThreshold = 0.0;
 
     std::vector<std::string> instrumentList;
-    boost::unordered_flat_map<std::string, std::size_t> instrumentMap;
+    boost::unordered_flat_map<std::string_view, std::size_t> instrumentMap;
 
     bool profiled = false;
     bool colo = false;
