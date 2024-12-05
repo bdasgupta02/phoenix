@@ -458,31 +458,41 @@ struct FIXReaderFast
     {
         sizes.fill(0u);
 
-        std::string_view::size_type pos = 0;
-        while (pos < data.size())
+        char const* ptr = data.data();
+        char const* end = ptr + data.size();
+
+        while (ptr < end)
         {
-            auto tagEnd = data.find('=', pos);
-            if (tagEnd == std::string_view::npos)
+            // finding tag
+            char const* tagStart = ptr;
+            while (ptr < end && *ptr != '=')
+                ++ptr;
+
+            if (ptr == end)
                 break;
 
-            auto valueEnd = data.find('\x01', tagEnd + 1);
-            if (valueEnd == std::string_view::npos)
-                break;
+            char const* tagEnd = ptr;
+            ++ptr; // skip '='
 
+            // finding value
+            char const* valueStart = ptr;
+            while (ptr < end && *ptr != '\x01')
+                ++ptr;
+
+            char const* valueEnd = ptr;
+
+            if (ptr < end)
+                ++ptr; // skip '\x01'
+
+            // parse
             std::size_t tag;
-            std::from_chars(data.begin() + pos, data.begin() + tagEnd, tag);
+            std::from_chars(tagStart, tagEnd, tag);
             if (tag > POINTER_CAPACITY + 1u)
-            {
-                pos = valueEnd + 1u;
                 continue;
-            }
 
-            std::string_view value{data.begin() + tagEnd + 1u, data.begin() + valueEnd};
-
-            pointers[tag][sizes[tag]++] = value;
-            pos = valueEnd + 1u;
+            pointers[tag][sizes[tag]++] = {valueStart, static_cast<std::size_t>(valueEnd - valueStart)};
         }
-        
+
         msgType = getStringView(35);
     }
 

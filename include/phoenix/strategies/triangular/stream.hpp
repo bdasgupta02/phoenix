@@ -132,7 +132,6 @@ private:
         {
             try
             {
-                /*[[maybe_unused]] auto profiler = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");*/
                 if (std::chrono::steady_clock::now() - heartbeatLastSent > HEARTBEAT_INTERVAL) [[unlikely]]
                 {
                     auto msg = fixBuilder.heartbeat(nextSeqNum);
@@ -145,37 +144,37 @@ private:
                 if (!msgOpt)
                     continue;
 
+                /*[[maybe_unused]] auto profiler = handler->retrieve(tag::Profiler::Guard{}, "Trading pipeline");*/
                 fixReader.init(*msgOpt);
                 auto msgType = fixReader.getMessageType();
 
-                // test request
-                if (msgType == "1")
+                switch (msgType[0])
                 {
-                    auto msg = fixBuilder.heartbeat(nextSeqNum, fixReader.getStringView(112));
-                    handler->invoke(tag::TCPSocket::ForceSend{}, msg);
-                    ++nextSeqNum;
-                    PHOENIX_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
-                    continue;
+                    case '1':
+                    {
+                        auto msg = fixBuilder.heartbeat(nextSeqNum, fixReader.getStringView(112));
+                        handler->invoke(tag::TCPSocket::ForceSend{}, msg);
+                        ++nextSeqNum;
+                        PHOENIX_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
+                        continue;
+                    }
+                    case 'X':
+                    case 'W':
+                    {
+                        handler->invoke(tag::Hitter::MDUpdate{}, fixReader, true);
+                        continue;
+                    }
+                    case '8':
+                    {
+                        handler->invoke(tag::Hitter::ExecutionReport{}, fixReader);
+                        continue;
+                    }
+                    case '0':
+                        continue;
+                    default:
+                        PHOENIX_LOG_ERROR(handler, "Unknown message type", msgType);
+                        break;
                 }
-
-                /*auto recvInstrument = fixReader.getStringView(55);*/
-                /*if (!instrumentMap.contains(recvInstrument))*/
-                /*    continue;*/
-
-                if (msgType == "X" or msgType == "W") [[likely]]
-                {
-                    handler->invoke(tag::Hitter::MDUpdate{}, fixReader, true);
-                    continue;
-                }
-                else if (msgType == "8")
-                {
-                    handler->invoke(tag::Hitter::ExecutionReport{}, fixReader);
-                    continue;
-                }
-                else if (msgType == "0")
-                    continue;
-                else
-                    PHOENIX_LOG_INFO(handler, "Unknown message type", msgType);
             }
             catch (std::exception const& e)
             {
