@@ -487,10 +487,13 @@ struct FIXReaderFast
             // parse
             std::size_t tag;
             std::from_chars(tagStart, tagEnd, tag);
-            if (tag > POINTER_CAPACITY + 1u)
+            if (tag >= POINTER_CAPACITY)
                 continue;
 
-            pointers[tag][sizes[tag]++] = {valueStart, static_cast<std::size_t>(valueEnd - valueStart)};
+            if (sizes[tag]++ == 0u)
+                pointers[tag].clear();
+
+            pointers[tag].emplace_back(valueStart, static_cast<std::size_t>(valueEnd - valueStart));
         }
 
         msgType = getStringView(35);
@@ -505,7 +508,7 @@ struct FIXReaderFast
     std::string_view getStringView(std::size_t tag, std::size_t index = 0)
     {
         /*assert(tag < POINTER_CAPACITY && index < POINTER_FIELD_CAPACITY);*/
-        if (sizes[tag] < index)
+        if (sizes[tag] <= index)
             return UNKNOWN;
         return pointers[tag][index];
     }
@@ -555,9 +558,9 @@ struct FIXReaderFast
 private:
     // we don't yet care about deribit specific fields (e.g. 100090)
     static constexpr std::size_t POINTER_CAPACITY = 1400u;
-    static constexpr std::size_t POINTER_FIELD_CAPACITY = 8u;
+    /*static constexpr std::size_t POINTER_FIELD_CAPACITY = 8u;*/
 
-    std::array<std::array<std::string_view, 8u>, POINTER_CAPACITY> pointers;
+    std::array<std::vector<std::string_view>, POINTER_CAPACITY> pointers;
     std::array<std::size_t, POINTER_CAPACITY> sizes;
     std::string_view msgType;
 };
