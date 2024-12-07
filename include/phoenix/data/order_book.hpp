@@ -14,18 +14,18 @@ namespace phoenix {
 
 namespace detail {
 template<typename T>
-struct StaticNodePool
+struct NodePool
 {
     using value_type = T;
     using size_type = std::size_t;
 
-    static StaticNodePool& getInstance()
+    static NodePool& getInstance()
     {
-        static StaticNodePool instance{true};
+        static NodePool instance{true};
         return instance;
     }
 
-    StaticNodePool() = default;
+    NodePool() = default;
 
     value_type* allocate(std::size_t n)
     {
@@ -51,7 +51,7 @@ struct StaticNodePool
     }
 
 private:
-    StaticNodePool(bool)
+    NodePool(bool)
     {
         pool.resize(PREALLOCATOR_SIZE);
         for (std::size_t i = 0u; i < PREALLOCATOR_SIZE; ++i)
@@ -77,7 +77,7 @@ private:
 template<typename Price, typename Volume>
 struct OrderBook
 {
-    using Allocator = detail::StaticNodePool<std::pair<Price const, Volume>>;
+    using Allocator = detail::NodePool<std::pair<Price const, Volume>>;
     using BidMap = std::map<Price, Volume, std::greater<>, Allocator>;
     using AskMap = std::map<Price, Volume, std::less<>, Allocator>;
 
