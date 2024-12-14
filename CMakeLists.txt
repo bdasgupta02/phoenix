@@ -3,9 +3,13 @@ project(phoenix CXX)
 
 find_package(OpenSSL REQUIRED)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -pthread -O3 -flto=auto -finline-functions")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -mtune=native -pthread -fopenmp -O3 -flto=auto -finline-functions -fno-rtti")
 
 include(FetchContent)
 
