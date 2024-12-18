@@ -155,8 +155,6 @@ struct OrderBook
             else if (typeField == 1u)
                 pushAsk(price, volume);
         }
-
-        std::cout << std::endl;
     }
 
     void fromUpdate(FIXReaderFast& reader)
