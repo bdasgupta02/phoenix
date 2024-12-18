@@ -265,8 +265,8 @@ struct FIXMessageBuilder
         builder.reset(seqNum, "V", client);
         builder.append("262", seqNum);
         builder.append("263", 1);
-        builder.append("265", 0);
-        builder.append("264", 1);
+        builder.append("265", 1);
+        builder.append("264", 0);
 
         builder.append("146", instruments.size());
         for (auto const& symbol : instruments)
@@ -283,8 +283,8 @@ struct FIXMessageBuilder
         builder.reset(seqNum, "V", client);
         builder.append("262", seqNum);
         builder.append("263", 1);
-        builder.append("265", 0);
-        builder.append("264", 1);
+        builder.append("265", 1);
+        builder.append("264", 0);
         builder.append("146", 1);
         builder.append("55", instrument);
         builder.append("267", 2);
@@ -325,13 +325,13 @@ struct FIXMessageBuilder
         builder.reset(seqNum, "D", client);
         builder.append("11", seqNum);
         builder.append("40", 1);
-        /*builder.append("44", order.price.str());*/
+        builder.append("44", order.price.str());
         builder.append("38", order.volume.str());
         builder.append("54", order.side);
         builder.append("55", order.symbol);
 
-        if (order.isFOK)
-            builder.append("59", 4); // FOK
+        /*if (order.isFOK)*/
+        /*    builder.append("59", 4); // FOK*/
 
         return builder.serialize();
     }
@@ -494,6 +494,9 @@ struct FIXReaderFast
                 pointers[tag].clear();
 
             pointers[tag].emplace_back(valueStart, static_cast<std::size_t>(valueEnd - valueStart));
+            /*std::size_t const idx = sizes[tag]++;*/
+            /*if (idx < POINTER_FIELD_CAPACITY)*/
+            /*    pointers[tag][idx] = {valueStart, static_cast<std::size_t>(valueEnd - valueStart)};*/
         }
 
         msgType = getStringView(35);
@@ -505,7 +508,7 @@ struct FIXReaderFast
     FIXReaderFast(FIXReaderFast&) = delete;
     FIXReaderFast& operator=(FIXReaderFast&) = delete;
 
-    std::string_view getStringView(std::size_t tag, std::size_t index = 0)
+    std::string_view getStringView(std::size_t tag, std::size_t index = 0) const
     {
         /*assert(tag < POINTER_CAPACITY && index < POINTER_FIELD_CAPACITY);*/
         if (sizes[tag] <= index)
@@ -514,7 +517,7 @@ struct FIXReaderFast
     }
 
     template<concepts::Numerical T>
-    T getNumber(std::size_t tag, std::size_t index = 0u)
+    T getNumber(std::size_t tag, std::size_t index = 0u) const
     {
         auto val = getStringView(tag, index);
         if (val == UNKNOWN)
@@ -526,7 +529,7 @@ struct FIXReaderFast
     }
     
     template<typename DecimalType>
-    DecimalType getDecimal(std::size_t tag, std::size_t index = 0u)
+    DecimalType getDecimal(std::size_t tag, std::size_t index = 0u) const
     {
         auto val = getStringView(tag, index);
         if (val == UNKNOWN)
@@ -535,7 +538,7 @@ struct FIXReaderFast
         return {val};
     }
 
-    bool getBool(std::size_t tag, std::size_t index = 0u)
+    bool getBool(std::size_t tag, std::size_t index = 0u) const
     {
         auto val = getStringView(tag, index);
         if (val == UNKNOWN)
@@ -544,11 +547,11 @@ struct FIXReaderFast
         return val == "Y" || val == "y";
     }
     
-    bool isMessageType(std::string_view msgType) { return this->msgType == msgType; }
-    std::string_view getMessageType() { return msgType; }
-    std::size_t getFieldSize(std::size_t tag) { return sizes[tag]; }
+    bool isMessageType(std::string_view msgType) const { return this->msgType == msgType; }
+    std::string_view getMessageType() const { return msgType; }
+    std::size_t getFieldSize(std::size_t tag) const { return sizes[tag]; }
 
-    bool contains(std::size_t tag, std::size_t index = 0u)
+    bool contains(std::size_t tag, std::size_t index = 0u) const
     {
         return (sizes[tag] >= index + 1u);
     }
@@ -558,7 +561,7 @@ struct FIXReaderFast
 private:
     // we don't yet care about deribit specific fields (e.g. 100090)
     static constexpr std::size_t POINTER_CAPACITY = 1400u;
-    /*static constexpr std::size_t POINTER_FIELD_CAPACITY = 8u;*/
+    static constexpr std::size_t POINTER_FIELD_CAPACITY = 8u;
 
     std::array<std::vector<std::string_view>, POINTER_CAPACITY> pointers;
     std::array<std::size_t, POINTER_CAPACITY> sizes;

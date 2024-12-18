@@ -144,7 +144,7 @@ public:
     constexpr void operator-=(Decimal other) { value -= other.value; }
     constexpr void operator-=(double other) { value -= other * MULTIPLIER; }
 
-    constexpr Decimal operator*(Decimal const& other) const { return {asDouble() * other.asDouble()}; }
+    constexpr Decimal operator*(Decimal const& other) const { return {(value * other.value) / MULTIPLIER}; }
     friend constexpr Decimal operator*(Decimal dec, double raw) { return {dec.asDouble() * raw}; }
     friend constexpr Decimal operator*(double raw, Decimal dec) { return {raw * dec.asDouble()}; }
 
@@ -152,9 +152,12 @@ public:
     friend constexpr Decimal operator/(Decimal dec, double raw) { return {dec.asDouble() / raw}; }
     friend constexpr Decimal operator/(double raw, Decimal dec) { return {raw / dec.asDouble()}; }
 
-    constexpr auto operator<=>(std::floating_point auto other) { return asDouble() <=> other; }
-    constexpr auto operator<=>(std::integral auto other) { return value <=> other; }
-    constexpr auto operator<=>(Decimal const& other) const = default;
+    constexpr auto operator<=>(std::floating_point auto other) const { return asDouble() <=> other; }
+    constexpr auto operator<=>(std::integral auto other) const { return value <=> other; }
+    constexpr auto operator<=>(Decimal const& other) const { return value <=> other.value; };
+
+    constexpr auto operator==(Decimal const& other) const { return value == other.value; };
+    constexpr auto operator!=(Decimal const& other) const { return value != other.value; };
 
     explicit constexpr operator bool() const { return value != 0ULL; }
 

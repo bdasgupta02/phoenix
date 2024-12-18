@@ -83,9 +83,46 @@ private:
     {
         auto* handler = this->getHandler();
         auto* config = this->getConfig();
+        
+        PHOENIX_LOG_CSV(handler, "instrument", "time", "microseconds", "bid", "ask", "index");
 
-        auto const& instrument = config->instrument;
-        subscribeToOne(instrument);
+        for (auto const& instrument : config->instruments)
+            getSnapshot(instrument);
+
+        unsigned int i = 0u;
+        while (i < 3u)
+        {
+            auto reader = recvMsg();
+            if (reader.isMessageType("W"))
+            {
+                auto const& recvInstrument = reader.getString("55");
+                auto now = std::chrono::system_clock::now();
+                auto timeT = std::chrono::system_clock::to_time_t(now);
+                auto durationSinceEpoch = now.time_since_epoch();
+                auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(durationSinceEpoch) % 1000000;
+                auto timeStr = std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%SZ");
+
+                std::string_view newBid;
+                std::string_view newAsk;
+
+                for (std::size_t i = 0u; i < 2u; ++i)
+                {
+                    unsigned const typeField = reader.template getNumber<unsigned>("269", i);
+                    if (typeField == 0u)
+                        newBid = reader.getStringView("270", i);
+                    if (typeField == 1u)
+                        newAsk = reader.getStringView("270", i);
+                }
+
+                std::string_view newIndex = reader.getStringView("100090");
+                PHOENIX_LOG_CSV(handler, recvInstrument, microseconds.count(), timeStr, newBid, newAsk, newIndex);
+                ++i;
+            }
+            else
+                PHOENIX_LOG_FATAL(handler, "Unknown message type", reader.getMessageType());
+        }
+
+        subscribeToAll(config->instruments);
 
         while (isRunning)
         {
@@ -110,14 +147,14 @@ private:
 
                 // wrong instrument
                 auto const& recvInstrument = reader.getString("55");
-                if (recvInstrument != instrument)
-                    continue;
 
                 // market data update
-                else if (msgType == "W" or msgType == "X") [[likely]]
+                if (msgType == "W" or msgType == "X") [[likely]]
                 {
                     auto now = std::chrono::system_clock::now();
                     auto timeT = std::chrono::system_clock::to_time_t(now);
+                    auto durationSinceEpoch = now.time_since_epoch();
+                    auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(durationSinceEpoch) % 1000000;
                     auto timeStr = std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%SZ");
 
                     std::string_view newBid;
@@ -134,7 +171,7 @@ private:
 
                     std::string_view newIndex = reader.getStringView("100090");
 
-                    PHOENIX_LOG_CSV(handler, timeStr, newBid, newAsk, newIndex);
+                    PHOENIX_LOG_CSV(handler, recvInstrument, microseconds.count(), timeStr, newBid, newAsk, newIndex);
                     continue;
                 }
 
@@ -153,9 +190,15 @@ private:
         }
     }
 
-    void subscribeToOne(std::string_view instrument)
+    void subscribeToAll(std::vector<std::string> const& instruments)
     {
-        std::string_view const msg = fixBuilder.marketDataRefreshSingle(nextSeqNum, instrument);
+        std::string_view const msg = fixBuilder.marketDataRefreshTriple(nextSeqNum, instruments);
+        forceSendMsg(msg);
+    }
+
+    void getSnapshot(std::string_view instrument)
+    {
+        std::string_view const msg = fixBuilder.marketDataRequestTopLevel(nextSeqNum, instrument);
         forceSendMsg(msg);
     }
 

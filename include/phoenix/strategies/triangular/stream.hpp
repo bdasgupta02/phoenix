@@ -53,35 +53,66 @@ struct Stream : NodeBase
         startPipeline();
     }
 
-    template<typename... Orders>
     [[gnu::hot, gnu::always_inline]]
-    inline bool handle(tag::Stream::TakeMarketOrders, Orders&&... orders)
+    inline bool handle(tag::Stream::SendQuotes, bool const take, auto const& order)
     {
         auto* handler = this->getHandler();
-        if (!handler->retrieve(tag::TCPSocket::CheckThrottle{}, sizeof...(Orders)))
-            return false;
 
+        bool const success = handler->retrieve(tag::TCPSocket::CheckThrottle{}, 3u, take) && take;
+        auto msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
+        if (success)
+        {
+            handler->invoke(tag::TCPSocket::SendUnthrottled{}, msg);
+            ++nextSeqNum;
+        }
+
+        return success;
+    }
+
+    template<typename... Orders>
+    [[gnu::hot, gnu::always_inline]]
+    inline bool handle(tag::Stream::TakeMarketOrders, bool const take, Orders&&... orders)
+    {
+        auto* handler = this->getHandler();
+
+        bool const send = handler->retrieve(tag::TCPSocket::CheckThrottle{}, sizeof...(Orders), take) && take;
         auto const sendOrder = [&](auto const& order)
         {
-            auto msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
+            std::string_view msg;
+            if (order.isLimit)
+                msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
+            else
+                msg = fixBuilder.newMarketOrderSingle(nextSeqNum, order);
+
+            if (send) [[likely]]
+            {
+                handler->invoke(tag::TCPSocket::SendUnthrottled{}, msg);
+                ++nextSeqNum;
+            }
+        };
+
+        (sendOrder(orders), ...);
+        return send;
+    }
+
+    template<typename... Orders>
+    [[gnu::hot, gnu::always_inline]]
+    inline void handle(tag::Stream::TakeMarketOrders, Orders&&... orders)
+    {
+        auto* handler = this->getHandler();
+        auto const sendOrder = [&](auto const& order)
+        {
+            std::string_view msg;
+            if (order.isLimit)
+                msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
+            else
+                msg = fixBuilder.newMarketOrderSingle(nextSeqNum, order);
+
             handler->invoke(tag::TCPSocket::SendUnthrottled{}, msg);
             ++nextSeqNum;
         };
 
         (sendOrder(orders), ...);
-        return true;
-    }
-
-    [[gnu::hot, gnu::always_inline]]
-    inline bool handle(tag::Stream::TakeMarketOrders, auto const& order)
-    {
-        auto msg = fixBuilder.newOrderSingle(nextSeqNum, order.symbol, order);
-
-        bool const success = this->getHandler()->retrieve(tag::TCPSocket::Send{}, msg);
-        if (success) [[likely]]
-            ++nextSeqNum;
-
-        return success;
     }
 
     [[gnu::hot, gnu::always_inline]]
@@ -107,23 +138,23 @@ private:
 
         PHOENIX_LOG_INFO(handler, "Starting trading pipeline");
 
-        // initializing snapshots
-        for (auto const& instrument : instrumentList)
-            getSnapshot(instrument);
-
-        unsigned int i = 0u;
-        while (i < 3u)
-        {
-            auto msg = handler->retrieve(tag::TCPSocket::ForceReceive{});
-            fixReader.init(msg);
-            if (fixReader.isMessageType("W"))
-            {
-                handler->invoke(tag::Hitter::MDUpdate{}, fixReader, false);
-                ++i;
-            }
-            else
-                PHOENIX_LOG_FATAL(handler, "Unknown message type", fixReader.getMessageType());
-        }
+        /*// initializing snapshots*/
+        /*for (auto const& instrument : instrumentList)*/
+        /*    getSnapshot(instrument);*/
+        /**/
+        /*unsigned int i = 0u;*/
+        /*while (i < 3u)*/
+        /*{*/
+        /*    auto msg = handler->retrieve(tag::TCPSocket::ForceReceive{});*/
+        /*    fixReader.init(msg);*/
+        /*    if (fixReader.isMessageType("W"))*/
+        /*    {*/
+        /*        handler->invoke(tag::Hitter::MDUpdate{}, fixReader, false);*/
+        /*        ++i;*/
+        /*    }*/
+        /*    else*/
+        /*        PHOENIX_LOG_FATAL(handler, "Unknown message type", fixReader.getMessageType());*/
+        /*}*/
 
         // subscribing to incremental
         subscribeToAll(instrumentList);
@@ -150,7 +181,7 @@ private:
 
                 switch (msgType[0])
                 {
-                    case '1':
+                    case '1': [[unlikely]]
                     {
                         auto msg = fixBuilder.heartbeat(nextSeqNum, fixReader.getStringView(112));
                         handler->invoke(tag::TCPSocket::ForceSend{}, msg);
@@ -158,10 +189,14 @@ private:
                         PHOENIX_LOG_INFO(handler, "Received TestRequest, sending Heartbeat");
                         continue;
                     }
-                    case 'X':
-                    case 'W':
+                    case 'X': [[likely]]
                     {
-                        handler->invoke(tag::Hitter::MDUpdate{}, fixReader, true);
+                        handler->invoke(tag::Hitter::MDUpdate{}, fixReader);
+                        continue;
+                    }
+                    case 'W': 
+                    {
+                        handler->invoke(tag::Hitter::MDSnapshot{}, fixReader);
                         continue;
                     }
                     case '8':
@@ -172,7 +207,7 @@ private:
                     case '0':
                         continue;
                     default:
-                        PHOENIX_LOG_ERROR(handler, "Unknown message type", msgType);
+                        PHOENIX_LOG_FATAL(handler, "Unknown message type", msgType, *msgOpt);
                         break;
                 }
             }

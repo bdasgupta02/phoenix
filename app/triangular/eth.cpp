@@ -15,7 +15,7 @@ using namespace phoenix::triangular;
 struct Traits
 {
     using PriceType = Decimal<4u>;
-    using VolumeType = Decimal<4u>;
+    using VolumeType = Decimal<0u>;
 };
 
 // clang-format off
@@ -45,6 +45,7 @@ int main(int argc, char* argv[])
     handler->invoke(tag::Logger::Start{});
     PHOENIX_LOG_INFO(handler, "Starting ETH/STETH/USDC Triangular Arbitrage System");
 
+    setCpu(0);
     setMaxThreadPriority();
     handler->invoke(tag::Stream::Start{});
 }

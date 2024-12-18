@@ -1,4 +1,4 @@
-#pragma once
+#include "phoenix/enums/log_level.hpp"
 
 #include <boost/describe/enum_from_string.hpp>
 #include <boost/describe/enum_to_string.hpp>
@@ -8,13 +8,14 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
 namespace po = boost::program_options;
 }
 
-namespace phoenix::data {
+namespace phoenix::copycat {
 
 template<typename Traits>
 struct Config
@@ -28,23 +29,19 @@ struct Config
             // clang-format off
             desc.add_options()
                 ("help,h", "see all commands")
-
-                // deribit
                 ("auth-username", po::value<std::string>(&username)->required(), "Deribit username")
                 ("auth-secret", po::value<std::string>(&secret)->required(), "Deribit client secret")
                 ("host", po::value<std::string>(&host)->default_value(host), "Deribit host address ([www/test].deribit.com for [prod/test])")
                 ("port", po::value<std::string>(&port)->default_value(port), "Deribit port (usually 9881 for TCP)")
                 ("client", po::value<std::string>(&client)->default_value(client), "Unique client name")
-                ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
-
-                // logging
                 ("log-level", po::value<LogLevel>(&logLevel)->default_value(logLevel), "Log level [DEBUG, INFO, WARN, ERROR, FATAL]")
                 ("log-print", po::value<bool>(&printLogs)->default_value(printLogs), "Print all logs")
                 ("log-folder", po::value<std::string>(&logFolder)->required(), "Path to where the log file will be saved")
+                ("instrument", po::value<std::string>(&instrument)->required(), "Instrument")
                 ("profiled", po::value<bool>(&profiled)->default_value(profiled), "Profiling mode")
-
-                // config
-                ("instrument", po::value<std::vector<std::string>>(&instruments)->required(), "Instruments")
+                ("contract-size", po::value<double>(&contractSize)->default_value(contractSize), "Asset contract size")
+                ("volume-size", po::value<double>(&volumeSize)->default_value(volumeSize), "Asset contract size")
+                ("colo", po::value<bool>(&colo)->default_value(colo), "Colo mode")
             ;
             // clang-format on
 
@@ -58,8 +55,6 @@ struct Config
             }
 
             po::notify(vm);
-            assert(instruments.size() == 3);
-
             return true;
         }
         catch (po::error const& e)
@@ -80,17 +75,18 @@ struct Config
     std::string client;
     std::string host = "www.deribit.com"; // test.deribit.com:9881 for test net
     std::string port = "9881";
-    bool colo = false;
 
     // logging
     std::string logFolder;
     LogLevel logLevel = LogLevel::INFO;
     bool printLogs = false;
-    bool profiled = false;
 
-    // config
-    std::vector<std::string> instruments;
-    std::string instrument = "DATA";
+    // settings
+    std::string instrument;
+    double contractSize = 0.0001;
+    double volumeSize = 1.0;
+    bool profiled = false;
+    bool colo = false;
 };
 
-} // namespace phoenix::data
+} // namespace phoenix::triangular

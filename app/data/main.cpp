@@ -39,6 +39,6 @@ int main(int argc, char* argv[])
     setMaxThreadPriority();
 
     handler->invoke(tag::Logger::Start{}, true);
-    std::cout << "Starting data reader for " << config.instrument << std::endl;
+    std::cout << "Starting data reader" << std::endl;
     handler->invoke(tag::Stream::Start{});
 }

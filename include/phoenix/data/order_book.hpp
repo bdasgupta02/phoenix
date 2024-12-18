@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <iostream>
 #include <utility>
 #include <vector>
 
@@ -29,7 +30,7 @@ struct NodePool
 
     value_type* allocate(std::size_t n)
     {
-        assert(n == 1u);
+        /*assert(n == 1u);*/
         auto& self = getInstance();
 
         auto curr = self.index;
@@ -46,7 +47,7 @@ struct NodePool
     {
         auto& self = getInstance();
         auto it = self.addresses.find(node);
-        assert(it != self.addresses.end());
+        /*assert(it != self.addresses.end());*/
         self.pool[it->second].isFree = true;
     }
 
@@ -81,8 +82,27 @@ struct OrderBook
     using BidMap = std::map<Price, Volume, std::greater<>, Allocator>;
     using AskMap = std::map<Price, Volume, std::less<>, Allocator>;
 
-    void pushBid(Price price, Volume volume) { bids[price] = volume; }
-    void pushAsk(Price price, Volume volume) { asks[price] = volume; }
+    void pushBid(Price price, Volume volume)
+    { 
+        if (!volume)
+        {
+            popBid(price);
+            return;
+        }
+
+        bids[price] = volume;
+    }
+
+    void pushAsk(Price price, Volume volume)
+    {
+        if (!volume)
+        {
+            popAsk(price);
+            return;
+        }
+
+        asks[price] = volume;
+    }
 
     void popBid(Price price) { bids.erase(price); }
     void popAsk(Price price) { asks.erase(price); }
@@ -127,11 +147,16 @@ struct OrderBook
             auto const price = reader.getDecimal<Price>(270, i);
             auto const volume = reader.getDecimal<Volume>(271, i);
 
+            /*if (!price)*/
+            /*    continue;*/
+
             if (typeField == 0u)
                 pushBid(price, volume);
             else if (typeField == 1u)
                 pushAsk(price, volume);
         }
+
+        std::cout << std::endl;
     }
 
     void fromUpdate(FIXReaderFast& reader)
@@ -144,6 +169,9 @@ struct OrderBook
 
             auto const price = reader.getDecimal<Price>(270, i);
             auto const volume = reader.getDecimal<Volume>(271, i);
+
+            /*if (!price)*/
+            /*    continue;*/
 
             if (typeField == 0u)
             {

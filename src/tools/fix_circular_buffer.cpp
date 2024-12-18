@@ -42,6 +42,8 @@ std::optional<std::string_view> FIXCircularBuffer::getMsg(std::size_t bytesRead)
                 std::size_t length = 0u;
                 std::from_chars(lenStart, lenStart + i, length);
                 std::size_t msgEnd = i + 1u + length + FIX_CHECKSUM_LENGTH;
+                if (buffer[msgEnd - 1u] != '\x01')
+                    break;
 
                 result = {buffer.data() + start, msgEnd - start};
                 advanceMoveOverflow(msgEnd, newEnd);

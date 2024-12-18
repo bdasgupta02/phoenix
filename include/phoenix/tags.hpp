@@ -58,6 +58,9 @@ struct Quoter
 
 struct Hitter
 {
+    struct MDSnapshot
+    {};
+
     struct MDUpdate
     {};
 

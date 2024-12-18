@@ -62,11 +62,12 @@ struct TCPSocket : NodeBase
             }
             
             socket.set_option(io::ip::tcp::no_delay(true));
-            socket.set_option(boost::asio::socket_base::receive_buffer_size(8 * 1024));
-            socket.set_option(boost::asio::socket_base::send_buffer_size(8 * 1024));
+            socket.set_option(boost::asio::socket_base::receive_buffer_size(32 * 1024));
+            socket.set_option(boost::asio::socket_base::send_buffer_size(32 * 1024));
 
             setsockopt(socket.native_handle(), SOL_SOCKET, SO_PRIORITY, &SOCKET_PRIORITY, sizeof(SOCKET_PRIORITY));
             setsockopt(socket.native_handle(), IPPROTO_TCP, TCP_QUICKACK, &SOCKET_ENABLE_FLAG, sizeof(SOCKET_ENABLE_FLAG));
+            setsockopt(socket.native_handle(), IPPROTO_TCP, TCP_DEFER_ACCEPT, &SOCKET_ENABLE_FLAG, sizeof(SOCKET_ENABLE_FLAG));
             setsockopt(socket.native_handle(), SOL_SOCKET, SO_BUSY_POLL, &SOCKET_POLL_MICROSECONDS, sizeof(SOCKET_POLL_MICROSECONDS));
  
             PHOENIX_LOG_INFO(this->getHandler(), "Connected successfully");
@@ -96,9 +97,9 @@ struct TCPSocket : NodeBase
         return true;
     }
 
-    inline bool handle(tag::TCPSocket::CheckThrottle, std::size_t req)
+    inline bool handle(tag::TCPSocket::CheckThrottle, std::size_t req, bool const take = true)
     {
-        return checkThrottle(req);
+        return checkThrottle(req, take);
     }
 
     inline void handle(tag::TCPSocket::SendUnthrottled, std::string_view msg)
@@ -131,20 +132,26 @@ struct TCPSocket : NodeBase
     };
 
 private:
-    inline bool checkThrottle(std::size_t numMessages)
+    inline bool checkThrottle(std::size_t numMessages, bool const take = true)
     {
         auto nextAllowed = lastSent + THROTTLE_INTERVAL;
         auto now = std::chrono::steady_clock::now();
 
         if (msgCountInterval <= MESSAGES_IN_INTERVAL - numMessages)
         {
-            msgCountInterval += numMessages;
+            if (take) [[likely]]
+            {
+                msgCountInterval += numMessages;
+            }
             return true;
         }
         else if (now >= nextAllowed)
         {
-            lastSent = now;
-            msgCountInterval = numMessages;
+            if (take) [[likely]]
+            {
+                lastSent = now;
+                msgCountInterval = numMessages;
+            }
             return true;
         }
         else
@@ -161,7 +168,7 @@ private:
     // setup
     static constexpr int SOCKET_PRIORITY{6};
     static constexpr int SOCKET_ENABLE_FLAG{1};
-    static constexpr int SOCKET_POLL_MICROSECONDS{10000};
+    static constexpr int SOCKET_POLL_MICROSECONDS{1000000};
 
     // socket
     io::io_context ioContext;
@@ -169,8 +176,8 @@ private:
     FIXCircularBuffer circularBuffer;
     
     // throttling
-    static constexpr std::chrono::seconds THROTTLE_INTERVAL{1u};
-    static constexpr std::size_t MESSAGES_IN_INTERVAL{5u};
+    static constexpr std::chrono::milliseconds THROTTLE_INTERVAL{1000u};
+    static constexpr std::size_t MESSAGES_IN_INTERVAL{10u};
     std::chrono::steady_clock::time_point lastSent = std::chrono::steady_clock::now();
     std::uint64_t msgCountInterval = 0u;
 };

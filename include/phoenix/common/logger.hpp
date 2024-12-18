@@ -4,6 +4,7 @@
 #include "phoenix/graph/node_base.hpp"
 #include "phoenix/strategies/convergence/config.hpp"
 #include "phoenix/tags.hpp"
+#include "phoenix/utils.hpp"
 
 #include <boost/describe.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
@@ -187,8 +188,9 @@ private:
 
     void loggerThread()
     {
-        auto const flushInterval = std::chrono::milliseconds(500);
-        auto lastFlush = std::chrono::system_clock::now();
+        setCpu(1);
+        auto const flushInterval = std::chrono::milliseconds(250);
+        /*auto lastFlush = std::chrono::system_clock::now();*/
         Entry entry;
 
         auto* config = this->getConfig();
@@ -217,13 +219,8 @@ private:
                 if (!processEntry())
                     return;
 
-            auto now = std::chrono::system_clock::now();
-            if (now - lastFlush >= flushInterval)
-            {
-                logFile->flush();
-                lastFlush = now;
-            }
-
+            logFile->flush();
+            std::this_thread::sleep_for(flushInterval);
             std::this_thread::yield();
         }
 
@@ -244,6 +241,8 @@ private:
 
         auto now = std::chrono::system_clock::now();
         auto timeT = std::chrono::system_clock::to_time_t(now);
+        auto fractionalSeconds = now.time_since_epoch() % std::chrono::seconds(1);
+        auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fractionalSeconds).count();
 
         if (isCSV)
             loggerCache << entry.message;
@@ -251,7 +250,8 @@ private:
         {
             // clang-format off
             loggerCache
-                << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%SZ")
+                << std::put_time(std::gmtime(&timeT), "%Y-%m-%dT%H:%M:%S")
+                << "." << std::setfill('0') << std::setw(6) << microseconds << "Z"
                 << " [" 
                 << logLevelString(entry.level)
                 << "] "

@@ -48,12 +48,12 @@ struct Profiler : NodeBase
 
         ~Timer()
         {
-            if (controlBlock && !moved) [[unlikely]]
+            if (controlBlock && !moved)
             {
                 auto end = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - controlBlock->start);
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - controlBlock->start);
                 PHOENIX_LOG_INFO(
-                    controlBlock->handler, "[PROFILER]", controlBlock->name, "took", duration.count(), "ns");
+                    controlBlock->handler, "[PROFILER]", controlBlock->name, "took", duration.count(), "µs");
             }
         }
 
