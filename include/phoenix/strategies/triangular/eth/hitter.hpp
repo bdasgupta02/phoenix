@@ -159,7 +159,7 @@ struct Hitter : NodeBase
             logOrder("[FILL]", orderId, side, avgFillPrice, justExecuted);
             auto& sentOrder = sentOrders[getIndex(symbol)];
 
-            if (sentOrder.price.asDouble() != avgFillPrice)
+            if (sentOrder.price != Price{avgFillPrice})
                 PHOENIX_LOG_INFO(handler, "Slippage detected", sentOrder.price.asDouble(), avgFillPrice);
 
             sentOrder.isFilled = true;
